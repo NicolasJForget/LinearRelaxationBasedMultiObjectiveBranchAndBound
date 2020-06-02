@@ -2,7 +2,7 @@
 \Problem name: IloCplex
 
 Maximize
- obj1: 52 x1 - 4 x2 - 8 x3 - 7 x4
+ obj1: 52 x1 - 12 x2 - 10 x3 - 2 x4
 Subject To
  c1:  13 x1 + 450 x2 + 98 x3 + 494 x4 <= 0
  c2:  5 x1 + 171 x2 + 465 x3 + 237 x4 <= 0

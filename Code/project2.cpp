@@ -34,7 +34,7 @@ int main()
     CplexModel M = CplexModel();
     M.build_dualBenson(&lp2);
 
-    std::vector<double> y = { 4,8,7 };
+    std::vector<double> y = { 12,10,2 };
     M.solveDualBenson(y);
 
     int hej;
