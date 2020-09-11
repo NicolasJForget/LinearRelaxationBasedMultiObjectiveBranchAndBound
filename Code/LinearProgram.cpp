@@ -121,6 +121,10 @@ CplexModel::CplexModel() : LinearProgram() {
 	cplex = IloCplex(model);
 	x = IloNumVarArray(env);
 	ptrObj = IloObjective(env);
+	ptrCtes = IloRangeArray(env);
+	//ptrCtes = std::vector<IloConstraint>(p);
+
+	cplex.setOut(env.getNullStream());
 }
 
 /* ==========================================================
@@ -234,8 +238,6 @@ void CplexModel::build_dualBenson(MathematicalFormulation* LP) {
 	}
 	model.add(lhs[m - 1] == 1);
 
-	
-	cplex.exportModel("check.lp");
 }
 
 void CplexModel::build_bestValidPoint(MathematicalFormulation* LP) {
@@ -270,52 +272,72 @@ void CplexModel::build_bestValidPoint(MathematicalFormulation* LP) {
 	}
 
 	for (int i = 0; i < LP->get_p(); i++) {
-		lhs.push_back(IloExpr(env));
+		//lhs.push_back(IloExpr(env));
+		ptrCtes.add(IloRange(env, -IloInfinity, 0)); // change rhs (p)
 		for (int j = 0; j < LP->get_n(); j++) {
-			lhs[LP->get_m() + i] += LP->get_objective(i, j) * x[j];
+			//lhs[LP->get_m() + i] += LP->get_objective(i, j) * x[j];
+			ptrCtes[i].setLinearCoef(x[j], LP->get_objective(i, j));
 		}
-		lhs[LP->get_m() + i] += 1 * x[n - 1]; // change coef of last var (lambda)
-		model.add(lhs[LP->get_m() + i] <= 0); // change rhs (p)
+		ptrCtes[i].setLinearCoef(x[n - 1], 1); // change coef of last var (lambda)
+		//lhs[LP->get_m() + i] += 1 * x[n - 1]; // change coef of last var (lambda)
+		//ptrCtes[i] = model.add(lhs[LP->get_m() + i] <= 0); // change rhs (p)
+		model.add(ptrCtes[i]);
 	}
+	
 
-	//cplex.exportModel("check.lp");
+	//cplex.exportModel("check3.lp");
 }
 
 void CplexModel::solveDualBenson(std::vector<double>& y) {
 
-	std::cout << "Final obj : " << cplex.getObjective() << std::endl;
-	std::cout << "solve 1" << std::endl;
-	cplex.solve();
+	//std::cout << "Final obj : " << cplex.getObjective() << std::endl;
+	//std::cout << "solve 1" << std::endl;
+	//cplex.solve();
 
 
 	//model.getObject();
-	std::cout << "Modifying the obj \n";
+	//std::cout << "Modifying the obj \n";
 	for (int k = 0; k < p; k++) {
-		std::cout << "Modifying variable " << n - p + k << "\n";
+		//std::cout << "Modifying variable " << n - p + k << "\n";
 		ptrObj.setLinearCoef(x[n - p + k], -y[k]);
 		//cplex.getObjective().setLinearCoef(x[n - p + k], -y[k]);
 		//model.setLinearCoef(x[n - p + k], -y[k]);
 		//std::cout << y[k] << " => " << cplex.getObjective() << std::endl;
 	}
-	std::cout << "Final obj : " << cplex.getObjective() << std::endl;
+	//std::cout << "Final obj : " << cplex.getObjective() << std::endl;
 
 	//std::cout << "Obj : " << model.getObject() << std::endl;
 
 
 
 
-	std::cout << "solve 2" << std::endl;
+	//std::cout << "solve 2" << std::endl;
 
 	cplex.solve();
 	IloNumArray rlt(env);
 	cplex.getValues(rlt, x);
-	for (int k = 0; k < n; k++) {
+	//for (int k = 0; k < n; k++) {
 		//rlt = cplex.getValue(k);
-		std::cout << "x[" << k << "] = " << rlt[k] << std::endl;
-	}
-	std::cout << "z(x) = " << cplex.getObjValue() << std::endl;
+		//std::cout << "x[" << k << "] = " << rlt[k] << std::endl;
+	//}
+	//std::cout << "z(x) = " << cplex.getObjValue() << std::endl;
 
-	cplex.exportModel("check2.lp");
+	//cplex.exportModel("check2.lp");
+}
+
+void CplexModel::solveBestValidPoint(std::vector<double>& s, std::vector<double>& phat) {
+
+	for (int i = 0; i < p; i++) {
+		//std::cout << ptrCtes[i] << std::endl;
+		ptrCtes[i].setUB(phat[i]);
+		ptrCtes[i].setLinearCoef(x[n - 1], phat[i] - s[i]);
+	}
+
+	cplex.solve();
+	IloNumArray rlt(env);
+	cplex.getValues(rlt, x);
+
+	//cplex.exportModel("check4.lp");
 }
 
  /* ==========================================================

@@ -31,14 +31,27 @@ int main()
     //lp2.print_objective();
     //lp2.print_constraints();
 
+    // building cplex models
+
     CplexModel M = CplexModel();
     M.build_dualBenson(&lp2);
+    CplexModel M2 = CplexModel();
+    M2.build_bestValidPoint(&lp2);
+
+    // hyperplane
 
     std::vector<double> y = { 12,10,2 };
+    //hpp = 
     M.solveDualBenson(y);
 
-    int hej;
-    std::cin >> hej;
+    // best valid pts
+
+    
+    std::vector<double> s = { 7,6,8 };
+    std::vector<double> phat = { 10,10,10 };
+    M2.solveBestValidPoint(s, phat);
+
+
     return 0;
 }
 

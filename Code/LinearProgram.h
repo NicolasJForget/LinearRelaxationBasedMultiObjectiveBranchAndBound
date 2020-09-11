@@ -55,6 +55,7 @@ public:
 	void build_dualBenson(MathematicalFormulation* LP); // creates template of the dual benson LP
 	void build_bestValidPoint(MathematicalFormulation* LP); // creates template for finding furthest interior point
 	void solveDualBenson(std::vector<double>& y);
+	void solveBestValidPoint(std::vector<double>& s, std::vector<double>& phat);
 
 private:
 	IloEnv env;
@@ -62,4 +63,6 @@ private:
 	IloCplex cplex;
 	IloNumVarArray x;
 	IloObjective ptrObj;
+	IloRangeArray ptrCtes;
+	//std::vector<IloRange> ptrCtes;
 };
