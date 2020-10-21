@@ -1,3 +1,9 @@
+/**
+* \author Nicolas Forget
+*
+* This class describe an extreme point of the lower bound set. Used in the linear relaxation (LP relax).
+*/
+
 #pragma once
 #include <iostream>
 #include <vector>
@@ -33,7 +39,7 @@ public:
 
 	void print_objective();
 	void print_constraints();
-	void formate_to_min();
+	void formateToMin(); // automatically switch objectives in maximization to min -z_k(x)
 
 	int get_objective(int i, int j);
 	int get_constraint(int i, int j);
@@ -52,10 +58,27 @@ class CplexModel : public LinearProgram // put all cte in standard form before b
 {
 public:
 	CplexModel();
-	void build_dualBenson(MathematicalFormulation* LP); // creates template of the dual benson LP
-	void build_bestValidPoint(MathematicalFormulation* LP); // creates template for finding furthest interior point
-	void solveDualBenson(std::vector<double>& y);
-	void solveBestValidPoint(std::vector<double>& s, std::vector<double>& phat);
+
+	void buildDualBenson(MathematicalFormulation* LP); // creates template of the dual benson LP
+	void solveDualBenson(std::vector<double>& y); // always feasible
+	std::vector<double> getNormalVector();
+	double getRhs(MathematicalFormulation& LP);
+
+	void buildBestValidPoint(MathematicalFormulation* LP); // creates template for finding furthest interior point
+	void solveBestValidPoint(std::vector<double>& s, std::vector<double>& phat); // always feasible
+	std::vector<double> getBestValidPoint(std::vector<double>& s, std::vector<double>& phat);
+
+	void buildFeasibility(MathematicalFormulation* LP); // creates template for checking feasibility of an extreme point
+	bool solveFeasibility(std::vector<double>& s); // true is solved to optimality, false otherwise
+	void retrieveSolutionFeasibility(std::vector<double>& s);
+
+	void buildWeightedSumScalarization(MathematicalFormulation* LP); // creates template for solving a weighted sum scalarization
+	void solveWeightedSumScalarization(MathematicalFormulation& LP, std::vector<double> lambda); // [toDo] true is solved to optimality, false otherwise
+	double getWeightedSumValue(MathematicalFormulation& LP, std::vector<double> lambda);
+	
+
+	IloCplex* get_cplex();
+	IloEnv* get_env();
 
 private:
 	IloEnv env;
@@ -64,5 +87,4 @@ private:
 	IloNumVarArray x;
 	IloObjective ptrObj;
 	IloRangeArray ptrCtes;
-	//std::vector<IloRange> ptrCtes;
 };

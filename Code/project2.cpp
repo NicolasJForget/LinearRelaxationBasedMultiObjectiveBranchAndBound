@@ -4,53 +4,67 @@
 #include <iostream>
 #include <list>
 #include <vector>
-//#include "Point.h"
-//#include "Hyperplane.h"
-#include "LowerBoundSet.h"
-#include "LinearProgram.h"
+//#include "LowerBoundSet.h"
+//#include "LinearProgram.h"
+#include "LB.h"
+#include "Model.h"
 
 
 int main()
 {
     std::cout << "Reading file...\n";
-    //LinearProgram lp = LinearProgram("C:/Users/au643334/Documents/MOrepo-Forget20/instances/raw/KP/Forget20-KP_10_3_1000-2000_random_3_3.raw");
+   MathematicalModel lp = MathematicalModel();
+    lp.fill("C:/Users/au643334/source/repos/LinearRelaxationBasedMultiObjectiveBranchAndBound/Code/instances/KP10-3.txt");
+    //lp.fill("C:/Users/au643334/Documents/MOrepo-Forget20/instances/raw/Forget20-AP_13_3_1-1000_spheredown_1_1.raw"); // Forget20-UFLP_7_3_1-1000_1-100_spheredown_1_1   Forget20-AP_13_3_1-1000_spheredown_1_1
+    //lp.fill("C:/Users/au643334/source/repos/LinearRelaxationBasedMultiObjectiveBranchAndBound/Code/instances/small.txt");
+    lp.formateToMin();
 
-    //std::cout << "ok on est good la\n";
-    //LowerBoundSet LB = LowerBoundSet(lp);
+
+    std::cout << " Done !\nBuilding Cplex models...";
+
+    //CplexModel db = CplexModel();
+    //db.buildDualBenson(&lp);
+    //CplexModel bvp = CplexModel();
+    //bvp.buildBestValidPoint(&lp);
+    //CplexModel feas = CplexModel();
+    //feas.buildFeasibility(&lp);
+    //CplexModel ws = CplexModel();
+    //ws.buildWeightedSumScalarization(&lp);
+    WeightedSumModel ws = WeightedSumModel();
+    ws.build(lp);
+    FeasibilityCheckModel fc = FeasibilityCheckModel();
+    fc.build(lp);
+    DualBensonModel db = DualBensonModel();
+    db.build(lp);
+    FurthestFeasiblePointModel ffp = FurthestFeasiblePointModel();
+    ffp.build(lp);
+
+    std::cout << " Done !\nInitializing the lower bound set...";
+
+    LowerBoundSet* LB = new LinearRelaxation(&lp, &ws, &fc, &db, &ffp);
+    //LinearRelaxation* LP = (LinearRelaxation*) LB; // need to convert LB to LinearRelaxation to call the copy constructor
+    LowerBoundSet* LB2 = new LinearRelaxation( *(LinearRelaxation*)LB );
+
+    LB->print();
+    LB2->print();
+
+    //LowerBoundSet LB = LowerBoundSet(lp,&ws,&feas,&db,&bvp);
+
+    std::cout << " Done !\nSolving ...";
+
+    //LB->compute();
+    LB2->compute();
+
+    std::cout << "Done !\n";
+
     //LB.print();
+    LB->print();
+    LB2->print();
 
-    //std::vector<double> normalVec{ 1,0,0 };
-    //std::vector<double> pts{ -3,-3,-3 };
-    //Hyperplane H = Hyperplane(normalVec, pts, LB.newId());
-    //LB.updatePolytope(H);
-    //LB.print();
-
-    MathematicalFormulation lp2 = MathematicalFormulation("C:/Users/au643334/Documents/MOrepo-Forget20/instances/raw/Forget20-KP_10_3_1-1000_random_1_1.raw");
-    lp2.formate_to_min();
-
-    //lp2.print_objective();
-    //lp2.print_constraints();
-
-    // building cplex models
-
-    CplexModel M = CplexModel();
-    M.build_dualBenson(&lp2);
-    CplexModel M2 = CplexModel();
-    M2.build_bestValidPoint(&lp2);
-
-    // hyperplane
-
-    std::vector<double> y = { 12,10,2 };
-    //hpp = 
-    M.solveDualBenson(y);
-
-    // best valid pts
-
-    
-    std::vector<double> s = { 7,6,8 };
-    std::vector<double> phat = { 10,10,10 };
-    M2.solveBestValidPoint(s, phat);
-
+    //double v = 1.0;
+    //int w;
+    //w = (int) v;
+    //std::cout << w << std::endl;
 
     return 0;
 }

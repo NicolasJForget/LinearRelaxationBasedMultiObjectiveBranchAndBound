@@ -1,96 +1,119 @@
 #include "Hyperplane.h"
 
+
 /* ==========================================================
 		Constructors
  ========================================================= */
 
-Hyperplane::Hyperplane(std::vector<double> const& nv, std::vector<double> const& pt, int identifier) : normalVector(nv), dim(nv.size() - 1), id(identifier) {
+/*! \brief Constructor with normal vector and point
+ *
+ * \param nv std::vector of double. It defines the normal vector of the hyperplane.
+ * \param pt std::vector of double. It defines the coordinates of a point of the hyperplane.
+ */
+Hyperplane::Hyperplane(std::vector<double> const& nv, std::vector<double> const& pt) : normalVector(nv), nbDefiningPts(0), dim(nv.size() - 1), copy(NULL) {
 
-	d = 0;
+	// compute the right-hand side given the normal vector and a point
+	rhs = 0;
 	for (int i = 0; i < dim + 1; i++) {
-		d += nv[i] * pt[i];
+		rhs += nv[i] * pt[i];
 	}
 }
+
+/*! \brief Constructor with normal vector and right-hand side
+ *
+ * \param nv std::vector of double. It defines the normal vector of the hyperplane.
+ * \param rhs double. It defines the right-hand side of the hyperplane's equation.
+ */
+Hyperplane::Hyperplane(std::vector<double> const& nv, double const& rhs) : normalVector(nv), nbDefiningPts(0), dim(nv.size() - 1), rhs(rhs), copy(NULL) {
+
+}
+
 
 /* ==========================================================
 		Regular Methods
  ========================================================= */
 
-double Hyperplane::FindMissingCoordinate(Point& pt, int coord) {
-
-	//objVector[coord] = h.get_d();
-	double val = d;
-	for (int k = 0; k < dim + 1; k++) {
-		if (k != coord) {
-			val -= normalVector[k] * pt.get_objVector(k);
-		}
-	}
-	val /= normalVector[coord];
-
-	return val;
+ /*! \brief Check whether the hyperplane is redundant
+  *
+  * \return true if the hyperplane is redundant in the representation of the lower bound set , false otherwise.
+  */
+bool Hyperplane::isRedundant() {
+	return nbDefiningPts <= dim;
 }
 
-std::vector<Point> Hyperplane::GenerateIntersectionTriangle(std::vector<double>& cone) {
+/*! \brief Prints the hyperplane
+ */
+void Hyperplane::print() {
 
-	std::vector<Point> triangle(dim + 1);
-	for (int k = 0; k < dim + 1; k++) {
-		triangle[k] = Point(cone);
-		triangle[k].set_objVector(k,FindMissingCoordinate(triangle[k], k));
+	std::cout << "( ";
+	for (int k = 0; k < dim; k++) {
+		std::cout << normalVector[k] << " , ";
 	}
+	std::cout << normalVector[dim] << " ) " << " = " << rhs << std::endl;
 
-	return triangle;
-} // useless ?
-
-bool Hyperplane::Above(Point & z) {
-
-	double val = 0;
-	for (int k = 0; k < dim + 1; k++) {
-		val += normalVector[k] * z.get_objVector(k);
-	}
-
-	return val >= d;
 }
 
-std::vector<double> Hyperplane::EdgeIntersection(Point& u, Point& v) {
+/*! \brief Counts that a new vertex defines this hyperplane
+ */
+void Hyperplane::addVertex() {
+	nbDefiningPts++;
+}
 
-	// compute the value of lambda, to find the point on the edge
-	double denominator = 0;
-	double lambda = d;
-	for (int l = 0; l < dim + 1; l++) {
-		lambda -= normalVector[l] * v.get_objVector(l);
-		denominator += normalVector[l] * (u.get_objVector(l) - v.get_objVector(l));
-	}
-	lambda /= denominator;
+/*! \brief Counts that a vertex defining this hyperplane doesn't exists anymore.
+ */
+void Hyperplane::removeVertex() {
+	nbDefiningPts--;
+}
 
-	// compute the actual point
-	std::vector<double> intersection(dim + 1);
-	for (int k = 0; k < dim + 1; k++) {
-		intersection[k] = lambda * u.get_objVector(k) + (1 - lambda) * v.get_objVector(k);
-	}
-
-	return intersection;
+/*! \brief Register the address of the last copy of this hyperplane.
+ *
+ * \param H Hyperplane*. The address of the copy.
+ */
+void Hyperplane::setCopy(Hyperplane* H) {
+    copy = H;
 }
 
 /* ==========================================================
 		Getters
  ========================================================= */
 
-double Hyperplane::get_d() {
-	return d;
+ /*! \brief Returns the right-hand side of the hyperplane
+  *
+  * \return the right-hand side of the hyperplane.
+  */
+double Hyperplane::get_rhs() {
+	return rhs;
 }
 
+/*! \brief Returns the dimension of the hyperplane
+ *
+ * \return the dimension of the hyperplane.
+ */
 int Hyperplane::get_dim() {
 	return dim;
 }
 
+/*! \brief Returns a specific coordinate of the normal vector of the hyperplane.
+ *
+ * \param coord integer. Defines the index of the coordinate we want to look at.
+ * \return the coordinate of the normal vector at index coord.
+ */
 double Hyperplane::get_normalVector(int coord) {
 	return normalVector[coord];
 }
 
-int Hyperplane::get_id() {
-	return id;
+/*! \brief Returns the number of points defining the hyperplane.
+ *
+ * \return the number of points defining the hyperplane.
+ */
+int Hyperplane::get_nbDefiningPts() {
+	return nbDefiningPts;
 }
 
-/* ==========================================================
-		Setters
- ========================================================= */
+/*! \brief Returns the address of the last copy of this hyperplane.
+ *
+ * \return a pointer to the copy.
+ */
+Hyperplane* Hyperplane::get_copy() {
+    return copy;
+}

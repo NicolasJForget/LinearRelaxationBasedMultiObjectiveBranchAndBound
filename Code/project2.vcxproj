@@ -157,20 +157,39 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Hyperplane.cpp" />
-    <ClCompile Include="LinearProgram.cpp" />
-    <ClCompile Include="LowerBoundSet.cpp" />
-    <ClCompile Include="Point.cpp" />
+    <ClCompile Include="LB.cpp" />
+    <ClCompile Include="LinearProgram.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="LowerBoundSet.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="Model.cpp" />
+    <ClCompile Include="Point.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="project2.cpp" />
+    <ClCompile Include="solution.cpp" />
+    <ClCompile Include="UB.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Hyperplane.h" />
-    <ClInclude Include="LinearProgram.h" />
-    <ClInclude Include="LowerBoundSet.h" />
-    <ClInclude Include="Point.h" />
+    <ClInclude Include="Hyperplane.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+    </ClInclude>
+    <ClInclude Include="LB.h" />
+    <ClInclude Include="LinearProgram.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </ClInclude>
+    <ClInclude Include="LowerBoundSet.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </ClInclude>
+    <ClInclude Include="Model.h" />
+    <ClInclude Include="Point.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+    </ClInclude>
     <ClInclude Include="resource.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\..\..\MOrepo-Forget20\instances\raw\KP\Forget20-KP_10_3_1000-2000_random_3_3.raw" />
+    <ClInclude Include="solution.h" />
+    <ClInclude Include="UB.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
