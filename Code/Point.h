@@ -11,6 +11,7 @@
 #include "Hyperplane.h"
 #include <vector>
 #include <list>
+#include <math.h>
 
 class Point
 {
@@ -23,6 +24,8 @@ private:
 	bool onBoundingBox; //!< true if it's located on the bounding box of the LP relax - i.e. share at least 1 component with the anti-ideal of the LP relax.
 	bool feasible; //!< true if it has a feasible pre-image (for the LP relax)
 	bool degenerate; //!< true if the point is degenerated, i.e. located on a new hyperplane added to the LB set.
+	bool integer; //!< true if the point has only integer coordinates in the variable space.
+	bool integratedInUB; //!< true if the point has already been integrated in the upper bound set.
 	Point* copy; //!< used for copy purpose only. See copy constructor of LinearRelaxation for its purpose.
 
 public:
@@ -178,6 +181,13 @@ public:
 	 */
 	void addAdjacentPoint(Point* adj);
 
+	/*! \brief Remove a specific point in the adjacency list.
+	 *
+	 * This function removes the point in adj in the adjacency list, if it is in the list.
+	 * \param adj Point*. A pointer to the adjacent point to remove.
+	 */
+	void removeAdjacentPoint(Point* adj);
+
 	/*! \brief Add a new active hyperplane.
 	 *
 	 * This function adds a new hyperplane to the list of active hyperplanes.
@@ -243,6 +253,20 @@ public:
 	 */
 	bool isOnBoundingBox();
 
+	/*! \brief Check whether the point is already in the upper bound set.
+	 *
+	 * This function checks whether the point is already in the upper bound set, by looking at integreatedInUB.
+	 * \return true, if the point is in the upper bound set.
+	 */
+	bool isInUB();
+
+	/*! \brief Set the point as "integrated in UB"
+	 *
+	 * This function checks set integratedInUB to true, meaning that the point has been added to the upper bound set if not
+	 * dominated.
+	 */
+	void setAsIntegratedInUB();
+
 	/*! \brief Print this point.
 	 *
 	 * This function prints the point by showing its objective vector in a easily-readible way for the user.
@@ -271,4 +295,26 @@ public:
 	 * \return a pointer to the copy.
 	 */
 	Point* get_copy();
+
+	/*! \brief Returns the number of variables.
+	 *
+	 * This function returns the number of variables.
+	 * \return the number of variables, as an int.
+	 */
+	int get_nbVar();
+
+	/*! \brief Returns the number of objectives.
+	 *
+	 * This function returns the number of objectives.
+	 * \return the number of objectives, as an int.
+	 */
+	int get_nbObj();
+
+	/*! \brief Check whether the point is integer in the variable space.
+	 *
+	 * This function checks whether the point is integer in the variable space, i.e. whether its pre-image has only
+	 * integer coordinates.
+	 * \return true if the point is integer, false otherwise.
+	 */
+	bool isInteger();
 };

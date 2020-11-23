@@ -9,11 +9,11 @@
 
   * \param z std::vector of double. It defines the objective vector of the new point.
   */
-Point::Point(std::vector<double> const& z) : objVector(z), preImage(0), adjList(0), activeHyperplanes(0), discarded(false), onBoundingBox(false), feasible(false), degenerate(false), copy(NULL) {};
+Point::Point(std::vector<double> const& z) : objVector(z), preImage(0), adjList(0), activeHyperplanes(0), discarded(false), onBoundingBox(false), feasible(false), degenerate(false), integer(false), copy(NULL), integratedInUB(false) {};
 
 /*! \brief Constructor.
 */
-Point::Point() : objVector(0), preImage(0), adjList(0), activeHyperplanes(0), discarded(false), onBoundingBox(false), feasible(false), degenerate(false), copy(NULL) {};
+Point::Point() : objVector(0), preImage(0), adjList(0), activeHyperplanes(0), discarded(false), onBoundingBox(false), feasible(false), degenerate(false), integer(false), copy(NULL), integratedInUB(false) {};
 
 /* ==========================================================
 		Regular methods
@@ -98,7 +98,7 @@ bool Point::locatedOn(Hyperplane& H) {
 		val += H.get_normalVector(k) * objVector[k];
 	}
 
-	return abs(val - H.get_rhs()) <= 0.0000000001; // the epsilon value
+	return abs(val - H.get_rhs()) <= 0.00000001; // the epsilon value
 
 }
 
@@ -113,6 +113,10 @@ std::vector<double> Point::edgeIntersection(Point& u, Hyperplane& H) {
 	// compute the value of lambda, to find the point on the edge
 	double denominator = 0;
 	double lambda = H.get_rhs();
+    //std::cout << "\n -- New edge --\n";
+    //H.print();
+    //print();
+    //u.print();
 	for (int l = 0; l < H.get_dim() + 1; l++) {
 		lambda -= H.get_normalVector(l) * objVector[l];
 		denominator += H.get_normalVector(l) * (u.get_objVector(l) - objVector[l]);
@@ -164,6 +168,14 @@ void Point::setObjVector(int obj, double val) {
  */
 void Point::addAdjacentPoint(Point* adj) {
 	adjList.push_back(adj);
+}
+
+/*! \brief Remove a specific point in the adjacency list.
+ *
+ * \param adj Point*. A pointer to the adjacent point to remove.
+ */
+void Point::removeAdjacentPoint(Point* adj) {
+    adjList.remove(adj);
 }
 
 /*! \brief Add a new active hyperplane.
@@ -251,6 +263,7 @@ bool Point::isOnBoundingBox() {
  */
 void Point::print() {
 	int s = objVector.size();
+    //std::cout << " is discarded: " << discarded;
 	std::cout << " ( ";
 	for (int k = 0; k < s - 1; k++) {
 		std::cout << objVector[k] << " , ";
@@ -272,6 +285,44 @@ bool Point::isDiscarded() {
  */
 bool Point::isDegenerate() {
 	return degenerate;
+}
+
+/*! \brief Check whether the point is integer in the variable space.
+ *
+ * \return true if the point is integer, false otherwise.
+ */
+bool Point::isInteger() {
+
+    if (!integer) {
+        integer = true;
+        int i = 0;
+        int n = preImage.size();
+        while (integer && i < n) {
+            if (preImage[i] - floor(preImage[i] + 0.00000000001) >= 0.00000000001) { // epsilons for numerical instabilities
+                integer = false;
+            }
+            ++i;
+        }
+    }
+
+    return integer;
+}
+
+/*! \brief Check whether the point is already in the upper bound set.
+ *
+ * \return true, if the point is in the upper bound set.
+ */
+bool Point::isInUB() {
+    return integratedInUB;
+}
+
+/*! \brief Set the point as "integrated in UB"
+ *
+ * This function checks set integratedInUB to true, meaning that the point has been added to the upper bound set if not
+ * dominated.
+ */
+void Point::setAsIntegratedInUB() {
+    integratedInUB = true;
 }
 
 /*! \brief Register the address of the last copy of this Point.
@@ -342,4 +393,20 @@ Point* Point::get_adress() {
  */
 Point* Point::get_copy() {
     return copy;
+}
+
+/*! \brief Returns the number of variables.
+ *
+ * \return the number of variables, as an int.
+ */
+int Point::get_nbVar() {
+    return preImage.size();
+}
+
+/*! \brief Returns the number of objectives.
+ *
+ * \return the number of objectives, as an int.
+ */
+int Point::get_nbObj() {
+    return objVector.size();
 }

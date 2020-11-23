@@ -12,6 +12,7 @@
 #include <fstream>
 #include <sstream>
 #include <ilcplex\ilocplex.h>
+#include "GlobalConstants.h"
 
 class Model {
 protected:
@@ -78,6 +79,13 @@ public:
 	 * This function creates an empty MathematicalModel.
 	 */
 	MathematicalModel();
+
+	/*! \brief Constructor of a mathematical model for a given instance.
+	 *
+	 * This function creates a MathematicalModel for the instance contained in file. It calls fill and formateToMin.
+	 * \param file string. The path and name of the instance file.
+	 */
+	MathematicalModel(std::string file);
 
 	/*! \brief Fill the MathematicalModel with the instance given in an instance file.
 	 *
@@ -191,7 +199,8 @@ public:
 class DualBensonModel : public CplexModel {
 private:
 	IloNumVarArray u; //!< first set of variables, dual of the initial problem's constraints (A >= b)
-	IloNumVarArray v; //!< second set of variables, dual of the upper bounds on the constraints
+	IloNumVarArray vUB; //!< second set of variables, dual of the upper bounds on the constraints
+	IloNumVarArray vLB; //!< second set of variables, dual of the upper bounds on the constraints
 	IloNumVarArray w; //!< third set of variables, dual of the constraints on the objectives (Cx - et <= y)
 	IloObjective ptrObj; //!< the objective function object, explicitely stored here to be modified prior to solving
 
@@ -228,7 +237,15 @@ public:
 	 * This function extract the constant of the equation of the facet computed. It given by $b^Tu - e^Tv$.
 	 * \return the constant of the equation of the facet.
 	 */
-	double extractConstant(MathematicalModel& LP);
+	double extractConstant(MathematicalModel& LP, BranchingDecisions* branchDec);
+
+	/*! \brief Adjust the bounds of the variables & constraints given some branching decisions
+	 *
+	 * This function extract information from the branching decisions and adjust the objective coefficients
+	 * so that the branching decisions are considered.
+	 * \param bd BranchingDecisions. The data structure that describes the branching decisions to apply.
+	 */
+	void adjustBounds(BranchingDecisions& bd);
 };
 
 
@@ -281,6 +298,14 @@ public:
 	 * \return the objective vector of the computed point, as a vector of double.
 	 */
 	std::vector<double> extractPoint(std::vector<double>& s, std::vector<double>& phat);
+
+	/*! \brief Adjust the bounds of the variables & constraints given some branching decisions
+	 *
+	 * This function extract information from the branching decisions and adjust the objective coefficients
+	 * so that the branching decisions are considered.
+	 * \param bd BranchingDecisions. The data structure that describes the branching decisions to apply.
+	 */
+	void adjustBounds(BranchingDecisions& bd);
 };
 
 
@@ -330,6 +355,14 @@ public:
 	 * \param s vector of doubles. The vector in which we store the computed pre-image of the reference point.
 	 */
 	void retrieveSolutionFeasibility(std::vector<double>& s);
+
+	/*! \brief Adjust the bounds of the variables & constraints given some branching decisions
+	 *
+	 * This function extract information from the branching decisions and adjust the objective coefficients
+	 * so that the branching decisions are considered.
+	 * \param bd BranchingDecisions. The data structure that describes the branching decisions to apply.
+	 */
+	void adjustBounds(BranchingDecisions& bd);
 };
 
 
@@ -380,4 +413,12 @@ public:
 	 * \return the optimal objective value, as a double.
 	 */
 	double retrieveObjectiveValue(MathematicalModel& LP, std::vector<double> lambda);
+
+	/*! \brief Adjust the bounds of the variables & constraints given some branching decisions
+	 *
+	 * This function extract information from the branching decisions and adjust the objective coefficients
+	 * so that the branching decisions are considered.
+	 * \param bd BranchingDecisions. The data structure that describes the branching decisions to apply.
+	 */
+	void adjustBounds(BranchingDecisions& bd);
 };

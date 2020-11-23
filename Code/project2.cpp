@@ -4,23 +4,25 @@
 #include <iostream>
 #include <list>
 #include <vector>
+#include "BranchAndBound.h"
 //#include "LowerBoundSet.h"
 //#include "LinearProgram.h"
-#include "LB.h"
-#include "Model.h"
+//#include "LB.h"
+//#include "Model.h"
+//#include "UB.h"
 
 
 int main()
 {
-    std::cout << "Reading file...\n";
-   MathematicalModel lp = MathematicalModel();
-    lp.fill("C:/Users/au643334/source/repos/LinearRelaxationBasedMultiObjectiveBranchAndBound/Code/instances/KP10-3.txt");
-    //lp.fill("C:/Users/au643334/Documents/MOrepo-Forget20/instances/raw/Forget20-AP_13_3_1-1000_spheredown_1_1.raw"); // Forget20-UFLP_7_3_1-1000_1-100_spheredown_1_1   Forget20-AP_13_3_1-1000_spheredown_1_1
+    //std::cout << "Reading file...\n";
+    //MathematicalModel lp = MathematicalModel();
+    //lp.fill("C:/Users/au643334/source/repos/LinearRelaxationBasedMultiObjectiveBranchAndBound/Code/instances/KP10-5.txt");
+    //lp.fill("C:/Users/au643334/Documents/MOrepo-Forget20/instances/raw/Forget20-UFLP_7_3_1-1000_1-100_spheredown_1_1.raw"); // Forget20-UFLP_7_3_1-1000_1-100_spheredown_1_1   Forget20-AP_13_3_1-1000_spheredown_1_1
     //lp.fill("C:/Users/au643334/source/repos/LinearRelaxationBasedMultiObjectiveBranchAndBound/Code/instances/small.txt");
-    lp.formateToMin();
+    //lp.formateToMin();
 
 
-    std::cout << " Done !\nBuilding Cplex models...";
+    //std::cout << " Done !\nBuilding Cplex models...";
 
     //CplexModel db = CplexModel();
     //db.buildDualBenson(&lp);
@@ -30,41 +32,56 @@ int main()
     //feas.buildFeasibility(&lp);
     //CplexModel ws = CplexModel();
     //ws.buildWeightedSumScalarization(&lp);
-    WeightedSumModel ws = WeightedSumModel();
-    ws.build(lp);
-    FeasibilityCheckModel fc = FeasibilityCheckModel();
-    fc.build(lp);
-    DualBensonModel db = DualBensonModel();
-    db.build(lp);
-    FurthestFeasiblePointModel ffp = FurthestFeasiblePointModel();
-    ffp.build(lp);
+    //WeightedSumModel ws = WeightedSumModel();
+    //ws.build(lp);
+    //FeasibilityCheckModel fc = FeasibilityCheckModel();
+    //fc.build(lp);
+    //DualBensonModel db = DualBensonModel();
+    //db.build(lp);
+    //FurthestFeasiblePointModel ffp = FurthestFeasiblePointModel();
+    //ffp.build(lp);
 
-    std::cout << " Done !\nInitializing the lower bound set...";
+    //std::cout << " Done !\nInitializing the lower bound set...";
 
-    LowerBoundSet* LB = new LinearRelaxation(&lp, &ws, &fc, &db, &ffp);
+    //LowerBoundSet* LB = new LinearRelaxation(&lp, &ws, &fc, &db, &ffp);
     //LinearRelaxation* LP = (LinearRelaxation*) LB; // need to convert LB to LinearRelaxation to call the copy constructor
-    LowerBoundSet* LB2 = new LinearRelaxation( *(LinearRelaxation*)LB );
+    //LowerBoundSet* LB2 = new LinearRelaxation( *(LinearRelaxation*)LB );
 
-    LB->print();
-    LB2->print();
+    //LB->print();
+    //LB2->print();
 
     //LowerBoundSet LB = LowerBoundSet(lp,&ws,&feas,&db,&bvp);
 
-    std::cout << " Done !\nSolving ...";
+    //std::cout << " Done !\nSolving ...";
 
     //LB->compute();
-    LB2->compute();
+    //LB2->compute();
 
-    std::cout << "Done !\n";
+    //std::cout << "Done !\n";
 
     //LB.print();
-    LB->print();
-    LB2->print();
+    //LB->print();
+    //LB2->print();
 
-    //double v = 1.0;
-    //int w;
-    //w = (int) v;
-    //std::cout << w << std::endl;
+    //UpperBoundSet U = UpperBoundSet(lp);
+    //LB->gatherIntegerSolutions(U);
+    //U.print();
+    //U.printLub();
+
+    std::string inst = "C:/Users/au643334/source/repos/LinearRelaxationBasedMultiObjectiveBranchAndBound/Code/instances/KP10-3.txt";
+    //std::string inst = "C:/Users/au643334/Documents/MOrepo-Forget20/instances/raw/Forget20-KP_15_3_1-1000_spheredown_3_1.raw";
+    BranchAndBound B = BranchAndBound(inst);
+
+    // run 1
+
+    //B.run(LP_RELAX, DEPTH_FIRST, FIRST_INDEX, NO_OBJECTIVE_BRANCHING);
+    //B.printYN();
+    //B.printStatistics();
+
+    // run 2
+
+    B.run(LP_RELAX, BREADTH_FIRST, FIRST_INDEX, NO_OBJECTIVE_BRANCHING);
+    B.printStatistics();
 
     return 0;
 }

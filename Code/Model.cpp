@@ -60,6 +60,15 @@ int Model::get_objDir(int i) {
   */
 MathematicalModel::MathematicalModel() : Model(), C(0), A(0), constrSign(0), b(0) {};
 
+/*! \brief Constructor of a mathematical model for a given instance.
+ *
+ * \param file string. The path and name of the instance file.
+ */
+MathematicalModel::MathematicalModel(std::string file) : MathematicalModel() {
+	fill(file);
+	formateToMin();
+}
+
 /* ==========================================================
 		Regular Methods
  ========================================================= */
@@ -300,7 +309,8 @@ IloEnv* CplexModel::get_env() {
  */
 DualBensonModel::DualBensonModel() : CplexModel() {
 	u = IloNumVarArray(env);
-	v = IloNumVarArray(env);
+	vUB = IloNumVarArray(env);
+	vLB = IloNumVarArray(env);
 	w = IloNumVarArray(env);
 	ptrObj = IloObjective(env);
 }
@@ -335,7 +345,10 @@ void DualBensonModel::build(MathematicalModel& LP) {
 
 		}
 		for (int i = 0; i < LP.get_n(); i++) { // v variables (for UB ctes on variables)
-			v.add(IloNumVar(env, 0, IloInfinity, ILOFLOAT));
+			vUB.add(IloNumVar(env, 0, IloInfinity, ILOFLOAT));
+		}
+		for (int i = 0; i < LP.get_n(); i++) {
+			vLB.add(IloNumVar(env, 0, IloInfinity, ILOFLOAT));
 		}
 		for (int i = 0; i < LP.get_p(); i++) { // w variables 
 			w.add(IloNumVar(env, 0, IloInfinity, ILOFLOAT));
@@ -347,8 +360,11 @@ void DualBensonModel::build(MathematicalModel& LP) {
 		for (int i = 0; i < LP.get_m(); i++) { // u variables
 			obj += LP.get_rhs(i) * u[i];
 		}
-		for (int i = 0; i < LP.get_n(); i++) { // v variables (UB on variables)
-			obj -= 1.0 * v[i];
+		for (int i = 0; i < LP.get_n(); i++) { // vUB variables (UB on variables)
+			obj -= 1.0 * vUB[i];
+		}
+		for (int i = 0; i < LP.get_n(); i++) { // vLB variables (LB on variables)
+			obj += 0.0 * vLB[i];
 		}
 		for (int i = 0; i < LP.get_p(); i++) { // w variables
 			obj -= 1.0 * w[i]; // replace 1 with value of y when using template
@@ -366,7 +382,8 @@ void DualBensonModel::build(MathematicalModel& LP) {
 			for (int j = 0; j < LP.get_m(); j++) { // A^T.u
 				lhs[i] += LP.get_constraint(j, i) * u[j];
 			}
-			lhs[i] -= 1.0 * v[i]; // - v
+			lhs[i] -= 1.0 * vUB[i]; // - vUB
+			lhs[i] += 1.0 * vLB[i]; // + vLB
 			for (int j = 0; j < LP.get_p(); j++) { // - C^T.w
 				lhs[i] -= (double)LP.get_objective(j, i) * w[j];
 			}
@@ -420,7 +437,9 @@ void DualBensonModel::solve(std::vector<double>& y) {
 std::vector<double> DualBensonModel::extractNormalVector() {
 
 	std::vector<double> theVector(p);
+	//std::cout << "status: " << cplex.getStatus() << std::endl;
 
+	//cplex.exportModel("pksabugsvp.lp");
 	IloNumArray rlt(env);
 	cplex.getValues(rlt, w);
 
@@ -435,23 +454,47 @@ std::vector<double> DualBensonModel::extractNormalVector() {
  *
  * \return the constant of the equation of the facet.
  */
-double DualBensonModel::extractConstant(MathematicalModel& LP) {
+double DualBensonModel::extractConstant(MathematicalModel& LP, BranchingDecisions* branchDec) {
 
 	double theRightHandSide = 0;
 
 	IloNumArray rlt(env);
 	cplex.getValues(rlt, u);
 	IloNumArray rlt2(env);
-	cplex.getValues(rlt2, v);
+	cplex.getValues(rlt2, vUB);
+	IloNumArray rlt3(env);
+	cplex.getValues(rlt3, vLB);
+
+	//IloExpr coef = ptrObj.getExpr();
+	//IloExpr::LinearIterator it = coef.getLinearIterator();
 
 	for (int i = 0; i < LP.get_m(); i++) {
 		theRightHandSide += LP.get_rhs(i) * rlt[i];
+		//theRightHandSide += it.getCoef() * rlt[i];
+		//it.operator++();
 	}
 	for (int i = 0; i < LP.get_n(); i++) {
-		theRightHandSide -= rlt2[i]; //LP.get_m() + 
+		theRightHandSide -= branchDec->ub[i] * rlt2[i];
+		//theRightHandSide += it.getCoef() * rlt2[i]; //LP.get_m() + 
+		//it.operator++();
+	}
+	for (int i = 0; i < LP.get_n(); i++) {
+		theRightHandSide += branchDec->lb[i] *rlt3[i]; //LP.get_m() + 
+		//it.operator++();
 	}
 
 	return theRightHandSide;
+}
+
+/*! \brief Adjust the bounds of the variables & constraints given some branching decisions
+ *
+ * \param bd BranchingDecisions. The data structure that describes the branching decisions to apply.
+ */
+void DualBensonModel::adjustBounds(BranchingDecisions& bd) {
+	for (int i = 0; i < m - 1; i++) { // m - 1 = n of initial pb
+		ptrObj.setLinearCoef(vUB[i], -bd.ub[i]);
+		ptrObj.setLinearCoef(vLB[i], bd.lb[i]);
+	}
 }
 
 
@@ -579,6 +622,16 @@ std::vector<double> FurthestFeasiblePointModel::extractPoint(std::vector<double>
 	return thePoint;
 }
 
+/*! \brief Adjust the bounds of the variables & constraints given some branching decisions
+ *
+ * \param bd BranchingDecisions. The data structure that describes the branching decisions to apply.
+ */
+void FurthestFeasiblePointModel::adjustBounds(BranchingDecisions& bd) {
+	for (int i = 0; i < n - 1; i++) {
+		x[i].setBounds(bd.lb[i], bd.ub[i]);
+	}
+}
+
 
 
 // ===============================================================================================================================
@@ -697,6 +750,16 @@ void FeasibilityCheckModel::retrieveSolutionFeasibility(std::vector<double>& s) 
 	}
 }
 
+/*! \brief Adjust the bounds of the variables & constraints given some branching decisions
+ *
+ * \param bd BranchingDecisions. The data structure that describes the branching decisions to apply.
+ */
+void FeasibilityCheckModel::adjustBounds(BranchingDecisions& bd) {
+	for (int i = 0; i < n; i++) {
+		x[i].setBounds(bd.lb[i], bd.ub[i]);
+	}
+}
+
 
 
 // ===============================================================================================================================
@@ -801,4 +864,14 @@ void WeightedSumModel::solve(MathematicalModel& LP, std::vector<double> lambda) 
 double WeightedSumModel::retrieveObjectiveValue(MathematicalModel& LP, std::vector<double> lambda) {
 	solve(LP, lambda);
 	return cplex.getObjValue();
+}
+
+/*! \brief Adjust the bounds of the variables & constraints given some branching decisions
+ *
+ * \param bd BranchingDecisions. The data structure that describes the branching decisions to apply.
+ */
+void WeightedSumModel::adjustBounds(BranchingDecisions& bd) {
+	for (int i = 0; i < n; i++) {
+		x[i].setBounds(bd.lb[i], bd.ub[i]);
+	}
 }

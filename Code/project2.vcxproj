@@ -156,6 +156,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="BranchAndBound.cpp" />
     <ClCompile Include="Hyperplane.cpp" />
     <ClCompile Include="LB.cpp" />
     <ClCompile Include="LinearProgram.cpp">
@@ -164,7 +165,9 @@
     <ClCompile Include="LowerBoundSet.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="Lub.cpp" />
     <ClCompile Include="Model.cpp" />
+    <ClCompile Include="Node.cpp" />
     <ClCompile Include="Point.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
     </ClCompile>
@@ -173,6 +176,8 @@
     <ClCompile Include="UB.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="BranchAndBound.h" />
+    <ClInclude Include="GlobalConstants.h" />
     <ClInclude Include="Hyperplane.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
     </ClInclude>
@@ -183,12 +188,15 @@
     <ClInclude Include="LowerBoundSet.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </ClInclude>
+    <ClInclude Include="Lub.h" />
     <ClInclude Include="Model.h" />
+    <ClInclude Include="Node.h" />
     <ClInclude Include="Point.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
     </ClInclude>
     <ClInclude Include="resource.h" />
     <ClInclude Include="solution.h" />
+    <ClInclude Include="timer.hpp" />
     <ClInclude Include="UB.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

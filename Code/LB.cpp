@@ -8,7 +8,7 @@
  *
  * \param lp MathematicalModel*. A pointer to the problem this lower bound set refers to.
  */
-LowerBoundSet::LowerBoundSet(MathematicalModel* lp) : lp(lp){}
+LowerBoundSet::LowerBoundSet(MathematicalModel* lp, BranchingDecisions* branch) : lp(lp), status(UNSOLVED), branchDec(branch) {}
 
 /* ==========================================================
         Regular Methods
@@ -20,7 +20,8 @@ LowerBoundSet::LowerBoundSet(MathematicalModel* lp) : lp(lp){}
  * it throws a message.
  */
 void LowerBoundSet::compute() {
-    std::cout << "\n\n    !!!! YOU ARE NOT SUPPOSED TO GET HERE !!!!\n   -> you entered the compute() function from a lower bound set object, instead of an inherited one\n\n";
+	throw std::string("You tried to compute a non-defined lower bound set");
+    //std::cout << "\n\n    !!!! YOU ARE NOT SUPPOSED TO GET HERE !!!!\n   -> you entered the compute() function from a lower bound set object, instead of an inherited one\n\n";
 }
 
 /*! \brief A virtual function that prints the lower bound set.
@@ -29,41 +30,118 @@ void LowerBoundSet::compute() {
  * it throws a message.
  */
 void LowerBoundSet::print() {
-	std::cout << "\n Nothing to print, you are not in a specific lower bound set !!";
+	//std::cout << "\n Nothing to print, you are not in a specific lower bound set !!";
+	throw std::string("You tried to print a non-defined lower bound set");
 }
+
+/*! \brief A virtual function that updates the upper bound set with integer solutions from the lower bound set.
+ *
+ * \param U UpperBoundSet. The upper bound set updated.
+ */
+void LowerBoundSet::gatherIntegerSolutions(UpperBoundSet& U) {
+	throw std::string("You tried to gather integer solutions in a non-defined lower bound set");
+	//std::cout << "\n\n !!!! You attempt to gather integer solutions in a non-defined lower bound set !!!!\n\n";
+}
+
+/*! \brief A virtual function that adjust the bounds of the variable given the bounds in the node nd.
+ *
+ * \param branchingDec BranchingDecisions. The data structure that describes the branching decisions to apply.
+ */
+void LowerBoundSet::applyBranchingDecisions() {
+	throw std::string("You tried to apply branching decisions to a non-defined lower bound set");
+}
+
+/*! \brief A virtual function that checks whether this lower bound set is dominated by the upper bound set U.
+ *
+ * \param U UpperBoundSet. The upper bound set used to do the dominance test.
+ * \param param Parameters. Used to check whether all the local upper bounds have to be tested.
+ */
+void LowerBoundSet::applyDominanceTest(UpperBoundSet& U, Parameters* param) {
+	throw std::string("You tried to do a dominance test with a non-defined lower bound set");
+}
+
+/* ==========================================================
+		Getters
+ ========================================================= */
+
+ /*! \brief Return the current status of the lower bound set.
+  *
+  * \return the identifier of the status, as an int.
+  */
+int LowerBoundSet::getStatus() {
+	return status;
+}
+
 
 // ===============================================================================================================================
 //							LinearRelaxation
 // ===============================================================================================================================
 
 /* ==========================================================
-        Constructors
+        Constructors & Destructor
  ========================================================= */
 
-LinearRelaxation::LinearRelaxation(MathematicalModel* lp, WeightedSumModel* ws, FeasibilityCheckModel* feas, DualBensonModel* db, FurthestFeasiblePointModel* bvp) : LowerBoundSet(lp), weightedSum(ws), feasibilityCheck(feas), dualBenson(db), furthestFeasiblePoint(bvp), warmstarted(false), nbIterations(0) {
-    initialize(*lp);
+ /* \brief Destructor of a LinearRelaxation
+  *
+  */
+LinearRelaxation::~LinearRelaxation() {
+
+	std::list<Point*>::iterator pts;
+	std::list<Hyperplane*>::iterator H;
+
+	for (pts = extrPoints.begin(); pts != extrPoints.end(); pts++) {
+		delete *pts;
+	}
+	for (H = facets.begin(); H != facets.end(); H++) {
+		delete* H;
+	}
+	for (int k = 0; k < lp->get_p(); k++) {
+		delete boundingBox[k];
+	}
+	//std::cout << "\nLB set destroyed\n";
+}
+
+LinearRelaxation::LinearRelaxation(MathematicalModel* lp, WeightedSumModel* ws, FeasibilityCheckModel* feas, DualBensonModel* db, FurthestFeasiblePointModel* bvp, BranchingDecisions* branch) : LowerBoundSet(lp,branch), weightedSum(ws), feasibilityCheck(feas), dualBenson(db), furthestFeasiblePoint(bvp), antiIdealPoint(lp->get_p()), interiorPoint(lp->get_p()), boundingBox(lp->get_p()), warmstarted(false), facets(0), extrPoints(0), nbIterations(0) {
+    //initialize(*lp);
+}
+
+/*! \brief Default constructor of a linear relaxation, with models built internally.
+ *
+ * \param lp MathematicalModel*. A pointer to the problem this lower bound set refers to.
+ */
+LinearRelaxation::LinearRelaxation(MathematicalModel* lp, BranchingDecisions* branch) : LowerBoundSet(lp,branch), antiIdealPoint(lp->get_p()), interiorPoint(lp->get_p()), boundingBox(lp->get_p()), warmstarted(false), facets(0), extrPoints(0), nbIterations(0) {
+
+	weightedSum = new WeightedSumModel();
+	weightedSum->build(*lp);
+	feasibilityCheck = new FeasibilityCheckModel();
+	feasibilityCheck->build(*lp);
+	dualBenson = new DualBensonModel();
+	dualBenson->build(*lp);
+	furthestFeasiblePoint = new FurthestFeasiblePointModel();
+	furthestFeasiblePoint->build(*lp);
+
+	//initialize(*lp);
 }
 
 /*! \brief The copy constructor for a linear relaxation
  *
  * \param LPrelax LinearRelaxation. The LinearRelaxation this object is a copy of.
  */
-LinearRelaxation::LinearRelaxation(LinearRelaxation& LPrelax) : LowerBoundSet(LPrelax.lp), weightedSum(LPrelax.weightedSum), feasibilityCheck(LPrelax.feasibilityCheck), dualBenson(LPrelax.dualBenson), furthestFeasiblePoint(LPrelax.furthestFeasiblePoint), antiIdealPoint(LPrelax.antiIdealPoint), interiorPoint(LPrelax.interiorPoint), warmstarted(false), nbIterations(0) { // CHANGE WARMSTARTED TO TRUE LATER
-	// CHANGE WARMSTARTED TO TRUE LATER
+LinearRelaxation::LinearRelaxation(LinearRelaxation* LPrelax, BranchingDecisions* branch) : LowerBoundSet(LPrelax->lp,branch), weightedSum(LPrelax->weightedSum), feasibilityCheck(LPrelax->feasibilityCheck), dualBenson(LPrelax->dualBenson), furthestFeasiblePoint(LPrelax->furthestFeasiblePoint), antiIdealPoint(LPrelax->antiIdealPoint), interiorPoint(LPrelax->interiorPoint), warmstarted(true), nbIterations(0) { // CHANGE WARMSTARTED TO TRUE LATER
 
 	// Bouding box
 	Hyperplane* H;
-	boundingBox = std::vector<Hyperplane*>(LPrelax.lp->get_p());
-	for (int k = 0; k < LPrelax.lp->get_p(); k++) {
-		H = new Hyperplane(*LPrelax.boundingBox[k]);
-		LPrelax.boundingBox[k]->setCopy(H); // remember the new address in the old object
+	boundingBox = std::vector<Hyperplane*>(LPrelax->lp->get_p());
+	for (int k = 0; k < LPrelax->lp->get_p(); k++) {
+		H = new Hyperplane(*LPrelax->boundingBox[k]);
+		LPrelax->boundingBox[k]->setCopy(H); // remember the new address in the old object
 		boundingBox[k] = H; // allocate a new address for the copy
 	}
 
 	// Copy hyperplane representation
 	std::list<Hyperplane*>::iterator f;
 	facets = std::list<Hyperplane*>(0);
-	for (f = LPrelax.facets.begin(); f != LPrelax.facets.end(); f++) {
+	for (f = LPrelax->facets.begin(); f != LPrelax->facets.end(); f++) {
 		H = new Hyperplane(**f);
 		(*f)->setCopy(H);
 		facets.push_back(H);
@@ -73,7 +151,7 @@ LinearRelaxation::LinearRelaxation(LinearRelaxation& LPrelax) : LowerBoundSet(LP
 	std::list<Point*>::iterator vertex;
 	Point* P;
 	extrPoints = std::list<Point*>(0);
-	for (vertex = LPrelax.extrPoints.begin(); vertex != LPrelax.extrPoints.end(); vertex++) {
+	for (vertex = LPrelax->extrPoints.begin(); vertex != LPrelax->extrPoints.end(); vertex++) {
 		P = new Point(**vertex);
 		(*vertex)->setCopy(P);
 		extrPoints.push_back(P);
@@ -104,15 +182,15 @@ LinearRelaxation::LinearRelaxation(LinearRelaxation& LPrelax) : LowerBoundSet(LP
   *
   * \param linprog MathematicalModel*. A pointer to the problem this lower bound set refers to.
   */
-void LinearRelaxation::initialize(MathematicalModel& lp) {
+void LinearRelaxation::initialize() { //MathematicalModel& lp
 
     // init anti-ideal & interior point
-    antiIdealPoint = std::vector<double>(lp.get_p());
-    interiorPoint = std::vector<double>(lp.get_p());
-    for (int k = 0; k < lp.get_p(); k++) {
-        for (int i = 0; i < lp.get_n(); i++) {
-            if (lp.get_objective(k, i) >= 0) {
-                antiIdealPoint[k] += lp.get_objective(k, i);
+    //antiIdealPoint = std::vector<double>(lp.get_p());
+    //interiorPoint = std::vector<double>(lp.get_p());
+    for (int k = 0; k < lp->get_p(); k++) {
+        for (int i = 0; i < lp->get_n(); i++) {
+            if (lp->get_objective(k, i) >= 0) {
+                antiIdealPoint[k] += lp->get_objective(k, i);
             }
         }
         antiIdealPoint[k] += 2;
@@ -121,8 +199,8 @@ void LinearRelaxation::initialize(MathematicalModel& lp) {
 
 	// solve z1(x) + ... + zp(z)
 
-	std::vector<double> normalVector(lp.get_p(), 1);
-	double ws = weightedSum->retrieveObjectiveValue(lp, normalVector); // ws value -> does it defines rhs of this hyperplane ?
+	std::vector<double> normalVector(lp->get_p(), 1);
+	double ws = weightedSum->retrieveObjectiveValue(*lp, normalVector); // ws value -> does it defines rhs of this hyperplane ?
 
 	// add the new hyperplan to the LB set
 
@@ -132,7 +210,7 @@ void LinearRelaxation::initialize(MathematicalModel& lp) {
 	// update the set of points
 	Point* newPts = new Point(antiIdealPoint);
 	extrPoints.push_back(newPts);
-	for (int k = 0; k < lp.get_p(); k++) {
+	for (int k = 0; k < lp->get_p(); k++) {
 		extrPoints.push_back(new Point(antiIdealPoint));
 		extrPoints.back()->setObjVector(k, extrPoints.back()->findMissingCoordinate(*h, k));
 		extrPoints.back()->addActiveHyperplane(h);
@@ -156,10 +234,10 @@ void LinearRelaxation::initialize(MathematicalModel& lp) {
 	}
 
 	// add p artificial dominated plans (search cone)
-	std::vector<double> nv(lp.get_p());
-	boundingBox = std::vector<Hyperplane*>(lp.get_p());
-	for (int k = 1; k <= lp.get_p(); k++) {
-		for (int l = 0; l < lp.get_p(); l++) {
+	std::vector<double> nv(lp->get_p());
+	boundingBox = std::vector<Hyperplane*>(lp->get_p());
+	for (int k = 1; k <= lp->get_p(); k++) {
+		for (int l = 0; l < lp->get_p(); l++) {
 			nv[l] = 0;
 		}
 		nv[k - 1] = 1;
@@ -168,7 +246,7 @@ void LinearRelaxation::initialize(MathematicalModel& lp) {
 
 	int obj = 0;
 	for (it1 = extrPoints.begin(); it1 != extrPoints.end(); ++it1) {
-		for (int k = 1; k <= lp.get_p(); k++) {
+		for (int k = 1; k <= lp->get_p(); k++) {
 			if (obj != k) {
 				(*it1)->addActiveHyperplane(boundingBox[k - 1]);
 			}
@@ -181,68 +259,89 @@ void LinearRelaxation::initialize(MathematicalModel& lp) {
  */
 void LinearRelaxation::compute() {
 
-	bool feasible(true);
-	std::vector<double> y;
-	Hyperplane* H;
-
-	// For exploring and updating list of extreme points at the same time
-	std::list<Point*>::iterator checkpoint;
-	std::list<Point*>::iterator currentPoint = extrPoints.begin();
-	bool firstCheckpointReached = false;
-
-	do
-	{
-		nbIterations++;
-
-		if (!warmstarted) {
-			feasible = feasibilityCheck->solve(*(*currentPoint)->get_objVector());
+	try {
+		if (!isFeasible()) {
+			status = INFEASIBLE;
 		}
 		else {
-			// to do (case where LB is warmstarted) -> use point.feasible flag instead ???
-		}
 
-		if (feasible) { // if this extreme point is a feasible objective vector, store preimage
-			if (!warmstarted) { // preimage already computed if feasible when warmstarted
-				(*currentPoint)->isNowFeasible(feasibilityCheck);
+			if (!warmstarted) {
+				initialize();
 			}
-			checkpoint = currentPoint;
-			firstCheckpointReached = true;
-			currentPoint++;
-		}
-		else // else, compute the cutting hyperplane
-		{
 
-			// first, get a point on the boundary
-			y = furthestFeasiblePoint->extractPoint(*(*currentPoint)->get_objVector(), interiorPoint);
+			bool feasible(true);
+			std::vector<double> y;
+			Hyperplane* H;
 
-			// afterwards, get the hyperplane of the facet y is located on
-			dualBenson->solve(y);
-			std::vector<double> normalVector = dualBenson->extractNormalVector();
-			double rhs = dualBenson->extractConstant(*lp);
-			H = new Hyperplane(normalVector, rhs);
+			// For exploring and updating list of extreme points at the same time
+			std::list<Point*>::iterator checkpoint;
+			std::list<Point*>::iterator currentPoint = extrPoints.begin();
+			bool firstCheckpointReached = false;
 
-			// then, update the polyhedron that defines the lienar relaxation
-			updatePolyhedron(H);
-
-			// delete the non-feasible point -> some list management
-			if (firstCheckpointReached) {
-				currentPoint = checkpoint;
-				currentPoint++;
-			}
-			else
+			do
 			{
-				currentPoint = extrPoints.begin();
-			}
+				nbIterations++;
+
+				if (!warmstarted) {
+					//std::cout << "solving feasibility check...\n";
+					feasible = feasibilityCheck->solve(*(*currentPoint)->get_objVector());
+				}
+				else {
+					// to do (case where LB is warmstarted) -> use point.feasible flag instead ???
+				}
+
+				if (feasible) { // if this extreme point is a feasible objective vector, store preimage
+					if (!warmstarted) { // preimage already computed if feasible when warmstarted
+						(*currentPoint)->isNowFeasible(feasibilityCheck);
+					}
+					checkpoint = currentPoint;
+					firstCheckpointReached = true;
+					currentPoint++;
+				}
+				else // else, compute the cutting hyperplane
+				{
+
+					// first, get a point on the boundary
+					//std::cout << "solving further feasible point...\n";
+					y = furthestFeasiblePoint->extractPoint(*(*currentPoint)->get_objVector(), interiorPoint);
+
+					// afterwards, get the hyperplane of the facet y is located on
+					//std::cout << "solving dual benson...\n";
+					dualBenson->solve(y);
+					std::vector<double> normalVector = dualBenson->extractNormalVector();
+					double rhs = dualBenson->extractConstant(*lp,branchDec);
+					H = new Hyperplane(normalVector, rhs);
+
+					// then, update the polyhedron that defines the lienar relaxation
+					updatePolyhedron(H);
+
+					// delete the non-feasible point -> some list management
+					if (firstCheckpointReached) {
+						currentPoint = checkpoint;
+						currentPoint++;
+					}
+					else
+					{
+						currentPoint = extrPoints.begin();
+					}
+				}
+
+				// check if on bounding box
+
+				// filter out-of-polytope hyperplanes using point ids
+
+			} while (currentPoint != extrPoints.end());
+			// --> include the last point to check completely ???? seems to be done actually
+			// --> skip the first point ??? (anti-ideal)
+			filterExtremePoints();
+			status = SOLVED;
 		}
-
-		// check if on bounding box
-
-		// filter out-of-polytope hyperplanes using point ids
-
-	} while (currentPoint != extrPoints.end());
-	// --> include the last point to check completely ???? seems to be done actually
-	// --> skip the first point ??? (anti-ideal)
-	filterExtremePoints();
+	}
+	catch (IloException& ie)
+	{
+		std::cerr << "Error in the constructor of the ModelClass : " << ie.getMessage() << ". Terminating!\n";
+		exit(1);
+	}
 }
 
 /*! \brief This function update the representations of the linear relaxation by adding a new hyperplane.
@@ -258,9 +357,12 @@ void LinearRelaxation::updatePolyhedron(Hyperplane* H) {
 
 	facets.push_back(H);
 
+	//std::cout << " \n\n ---- new it ----\n";
 	// search for infeasible and degenerated points
 	vertex = extrPoints.begin();
 	while (vertex != extrPoints.end()) {
+		//(*vertex)->print();
+		//std::cout << " at address" << (*vertex) << "\n";
 		(*vertex)->becomesNonDegenerate();
 		if ((*vertex)->locatedOn(*H)) {
 			(*vertex)->becomesDegenerate();
@@ -286,12 +388,20 @@ void LinearRelaxation::updatePolyhedron(Hyperplane* H) {
 
 				if (!(*vertex2)->isDiscarded() && !(*vertex2)->isDegenerate()) { // for each non-discarded adjacent vertex, we compute the new point
 
+					//std::cout << "\n New pts: ";
+					//newPts->print();
+					//std::cout << "at intersection of " << *vertex << " and " << *vertex2;
+					//(*vertex)->print();
+					//(*vertex2)->print();
 					newPts = new Point((*vertex2)->edgeIntersection(**vertex, *H)); // new pts as intersection of H and edge
 					(*vertex2)->replaceAdjVertex((*vertex)->get_adress(), newPts); // update adj vertex for feasible one
 					newPts->addAdjacentPoint((*vertex2)->get_adress()); // init adj vertex for new one
 					newPts->updateActiveHyperplanes(**vertex, **vertex2, H); // add a new active hyperplanes [ICI] !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 					extrPoints.push_back(newPts); //new pts added to list of extreme points
 					allNewVertices.push_back(newPts); // remember the new vertex				
+				}
+				else if ((*vertex2)->isDegenerate()) {
+					(*vertex2)->removeAdjacentPoint(*vertex);
 				}
 			}
 		}
@@ -325,7 +435,7 @@ void LinearRelaxation::updatePolyhedron(Hyperplane* H) {
 	std::list <Hyperplane*>* listHpp;
 	vertex = extrPoints.begin();
 
-	while (vertex != extrPoints.end()) {
+	while (vertex != extrPoints.end()) { // relies on the fact that the first extreme point is the antiIdeal and is thus always feasible. This simplifies the list management.
 		vertex2 = vertex;
 		++vertex;
 		if ((*vertex2)->isDiscarded()) {
@@ -364,6 +474,14 @@ void LinearRelaxation::filterExtremePoints() {
 			++k;
 		}
 	}
+}
+
+/*! \brief Check whether the problem solved is feasible.
+ *
+ * \return true is it is feasible, false otherwise.
+ */
+bool LinearRelaxation::isFeasible() {
+	return feasibilityCheck->solve(antiIdealPoint);
 }
 
 /*! \brief Prints the lower bound set.
@@ -410,4 +528,121 @@ void LinearRelaxation::print() {
 		}
 	}
 	std::cout << "\n";
+}
+
+/*! \brief Updates the upper bound set with integer solutions found in the linear relaxation
+ *
+ * \param U UpperBoundSet. The upper bound set updated.
+ */
+void LinearRelaxation::gatherIntegerSolutions(UpperBoundSet& U) {
+
+	std::list<Point*>::iterator vertex;
+	int nbPts = 0;
+	bool existsIntegerPoints = false;
+
+	for (vertex = extrPoints.begin(); vertex != extrPoints.end(); vertex++) {
+		if (!(*vertex)->isOnBoundingBox()) { // if the point is not on the bouding box and is integer     && (*vertex)->isInteger()
+			nbPts++;
+			if (!(*vertex)->isInUB() && (*vertex)->isInteger()) {
+				//std::cout << "\n new integer extreme point: ";
+				//(*vertex)->print();
+				(*vertex)->setAsIntegratedInUB(); // marche pas !!!!
+				U.updateUB(**vertex);
+				existsIntegerPoints = true;
+			}
+		}
+	}
+
+	if (nbPts == 1 && existsIntegerPoints) {
+		status = OPTIMAL;
+	}
+
+}
+
+/*! \brief A virtual function that adjust the bounds of the variable given the bounds in the node nd.
+ *
+ * \param branchingDec BranchingDecisions. The data structure that describes the branching decisions to apply.
+ */
+void LinearRelaxation::applyBranchingDecisions() {
+	dualBenson->adjustBounds(*branchDec);
+	furthestFeasiblePoint->adjustBounds(*branchDec);
+	feasibilityCheck->adjustBounds(*branchDec);
+	weightedSum->adjustBounds(*branchDec);
+}
+
+/*! \brief A virtual function that checks whether this lower bound set is dominated by the upper bound set U.
+ *
+ * \param U UpperBoundSet. The upper bound set used to do the dominance test.
+ * \param param Parameters. Used to check whether all the local upper bounds have to be tested.
+ */
+void LinearRelaxation::applyDominanceTest(UpperBoundSet& U, Parameters* param) {
+
+	std::list<Hyperplane*>::iterator H;
+	std::list<LocalUpperBound>* NU = U.getLubs();
+	std::list<LocalUpperBound>::iterator u;
+	bool lbDominated = true;
+	
+	if (param->objectiveBranching == NO_OBJECTIVE_BRANCHING) {
+		bool lubDominated = true;
+
+		u = NU->begin();
+		while (lbDominated && u != NU->end()) {
+			//(*u).print();
+			H = facets.begin();
+			lubDominated = true;
+			while (lubDominated && H != facets.end()) {
+				if (!(u->above(*H,param))) { // if lub below an hyperplane H, not dominated
+					lubDominated = false;
+				}
+				H++;
+			}
+			if (lubDominated) {
+				lbDominated = false;
+			}
+			u++;
+		}
+
+		if (lbDominated) {
+			status = DOMINATED;
+		}
+	}
+	else {
+		throw std::string("Error: this objective branching parameter is not supported yet for dominance test.");
+	}
+}
+
+/* ==========================================================
+		Getters
+ ========================================================= */
+
+/*! \brief Return the pointer to the weighted sum model.
+ *
+ * \return a pointer to a WeightedSumModel.
+ */
+WeightedSumModel* LinearRelaxation::getWeightedSumModel() {
+	return weightedSum;
+}
+
+/*! \brief Return the pointer to the feasibility check model.
+ *
+ * \return a pointer to a FeasiblitityCheckModel.
+ */
+FeasibilityCheckModel* LinearRelaxation::getFeasibilityCheckModel() {
+	return feasibilityCheck;
+}
+
+/*! \brief Return the pointer to the dual benson model.
+ *
+ * \return a pointer to a DualBensonModel.
+ */
+DualBensonModel* LinearRelaxation::getDualBensonModel() {
+	return dualBenson;
+}
+
+/*! \brief Return the pointer to the furthest feasible point model.
+ *
+ * \return a pointer to a FurthestFeasiblePointModel.
+ */
+FurthestFeasiblePointModel* LinearRelaxation::getFurthestFeasiblePointModel() {
+	return furthestFeasiblePoint;
 }
