@@ -1,0 +1,1 @@
+instance,p,n,configLB,configNodeSel,configOB,solved,YN,cpuTotal,nbLpSolved,cpuInitialization,cpuCplex,cpuUpdatePolyhedron,nbNodes,minDepth,maxDepth,avgDepth,nbFathomedInfeas,nbFathomedOptimality,nbFathomedDominance,cpuDominanceTest,cpuUbUpdate,cpuLbComputation,cpuComputeOb,cpuVarSel,cpuNodeSel

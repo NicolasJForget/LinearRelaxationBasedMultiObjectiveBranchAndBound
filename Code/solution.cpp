@@ -14,10 +14,11 @@ Solution::Solution() : variableVector(0), objectiveVector(0), dominated(false) {
  * objective vector.
  * \param pts Point. The point the solution is created from.
  */
-Solution::Solution(Point& pts) : dominated(false) {
+Solution::Solution(Point& pts, MathematicalModel* lp) : dominated(false) {
 
     // fill solution vector
-    int n = pts.get_nbVar();
+    //int n = pts.get_nbVar();
+    int n = lp->get_n();
     variableVector = std::vector<int>(n);
     for (int i = 0; i < n; i++) {
         variableVector[i] = (int)round(pts.get_preImage(i));
@@ -27,8 +28,17 @@ Solution::Solution(Point& pts) : dominated(false) {
     int p = pts.get_nbObj();
     objectiveVector = std::vector<int>(p);
     for (int k = 0; k < p; k++) {
-        objectiveVector[k] = (int)round(pts.get_objVector(k));
+        for (int i = 0; i < n; i++) {
+            objectiveVector[k] += (int)round(pts.get_preImage(i) * lp->get_objective(k,i));;
+        }
+        //objectiveVector[k] = (int)round(objectiveVector[k]);
     }
+
+  /*  std::cout << "initial point was ";
+    pts.print();
+    std::cout << " and current point is ";
+    print();
+    std::cout << "\n";*/
 }
 
 /* ==========================================================

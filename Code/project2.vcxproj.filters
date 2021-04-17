@@ -18,22 +18,13 @@
     <ClCompile Include="project2.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="LowerBoundSet.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Hyperplane.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Point.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="LinearProgram.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Model.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="LB.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="UB.cpp">
@@ -51,27 +42,24 @@
     <ClCompile Include="BranchAndBound.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SLUB.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="LB2.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="LowerBoundSet.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Hyperplane.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Point.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="LinearProgram.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="resource.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Model.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="LB.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="UB.h">
@@ -93,6 +81,15 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="timer.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SLUB.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Stat.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="LB2.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

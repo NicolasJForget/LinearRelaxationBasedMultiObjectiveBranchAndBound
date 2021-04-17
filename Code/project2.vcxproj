@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -108,6 +108,7 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;IL_STD;_ALLOW_ITERATOR_DEBUG_LEVEL_MISMATCH;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>C:\Program Files\IBM\ILOG\CPLEX_Studio1210\cplex\include;C:\Program Files\IBM\ILOG\CPLEX_Studio1210\concert\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -145,6 +146,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;IL_STD;_ALLOW_ITERATOR_DEBUG_LEVEL_MISMATCH;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>C:\Program Files\IBM\ILOG\CPLEX_Studio1210\cplex\include;C:\Program Files\IBM\ILOG\CPLEX_Studio1210\concert\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -158,13 +160,7 @@
   <ItemGroup>
     <ClCompile Include="BranchAndBound.cpp" />
     <ClCompile Include="Hyperplane.cpp" />
-    <ClCompile Include="LB.cpp" />
-    <ClCompile Include="LinearProgram.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="LowerBoundSet.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-    </ClCompile>
+    <ClCompile Include="LB2.cpp" />
     <ClCompile Include="Lub.cpp" />
     <ClCompile Include="Model.cpp" />
     <ClCompile Include="Node.cpp" />
@@ -172,21 +168,17 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="project2.cpp" />
+    <ClCompile Include="SLUB.cpp" />
     <ClCompile Include="solution.cpp" />
     <ClCompile Include="UB.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BranchAndBound.h" />
     <ClInclude Include="GlobalConstants.h" />
+    <ClInclude Include="LB2.h" />
+    <ClInclude Include="Stat.h" />
     <ClInclude Include="Hyperplane.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
-    </ClInclude>
-    <ClInclude Include="LB.h" />
-    <ClInclude Include="LinearProgram.h">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-    </ClInclude>
-    <ClInclude Include="LowerBoundSet.h">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </ClInclude>
     <ClInclude Include="Lub.h" />
     <ClInclude Include="Model.h" />
@@ -195,6 +187,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
     </ClInclude>
     <ClInclude Include="resource.h" />
+    <ClInclude Include="SLUB.h" />
     <ClInclude Include="solution.h" />
     <ClInclude Include="timer.hpp" />
     <ClInclude Include="UB.h" />

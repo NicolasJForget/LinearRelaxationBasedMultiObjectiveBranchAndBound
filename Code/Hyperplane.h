@@ -7,15 +7,20 @@
 #pragma once
 #include <iostream>
 #include <vector>
+#include<list>
+
+class Point;
 
 class Hyperplane
 {
 private:
 	std::vector<double> normalVector; //!< normal vector of the hyperplane
 	int nbDefiningPts; //!< number of points known on the hyperplane - used if the hyperplane defines a facet of a polyhedron
-	int dim; //!< dimension of the hyperplane
+	std::list<Point*> defPts; //!< defining points of the facet
+	int dim; //!< dimension of the hyperplane (p - 1)
 	double rhs; //!< a constant defining the right-hand side of the hyperplane's equation
 	Hyperplane* copy; //!< used for copy purpose only. See copy constructor of LinearRelaxation for its purpose.
+	bool redundant; //!< true if the hyperplane is redundant, i.e. if it is a face but not a facet of the lower bound set.
 
 public:
 
@@ -39,9 +44,26 @@ public:
 	 *
 	 * This function checks whether the hyperplane is redundant in the current description of the lower bound set.
 	 * This is done by checking whether the number of extreme points of the lower bound set located on this hyperplane
-	 * is lower than its dimension (dim). If this is true, the hyperplane defines a face (not a facet) of the lower
-	 * bound set and is thus redundant.
-	 * \return true if the hyperplane is redundant in the representation of the lower bound set , false otherwise.
+	 * is lower than its dimension (dim); or if its defining points belongs to a single face of the lower bound set.
+	 * If this is true, the hyperplane defines a face (not a facet) of the lower
+	 * bound set and is thus redundant. In this case, redundant is set to true.
+	 * \param int p. Dimension of the objective space.
+	 */
+	void checkRedundancy();
+
+	/*! \brief Check whether the hyperplane is redundant using a quick but approximate method.
+	 *
+	 * This function quickly checks whether the hyperplane is redundant in the current description of the lower bound set.
+	 * This is done by checking whether the number of extreme points of the lower bound set located on this hyperplane
+	 * is lower than its dimension (dim). 
+	 * \return true if it is redundant.
+	 */
+	bool quickCheckRedundancy();
+
+	/*! \brief Check whether the hyperplane is redundant
+	 *
+	 * This functions states whether the hyperplane is redundant, by returning the value of redundant.
+	 * \return true if the hyperplane is redundant.
 	 */
 	bool isRedundant();
 
@@ -51,6 +73,15 @@ public:
 	 * an easily-readible way for the user.
 	 */
 	void print();
+
+	/*! \brief Check whether the point y is dominated by the hyperplane.
+	 *
+	 * This function checks if the point y is located above the hyperplane, i.e. if there is at least one point of the
+	 * hyperplane that dominates it.
+	 * \param y vector of int. Represents the point used for the comparison.
+	 * \return true if the point is dominated by the hyperplane.
+	 */
+	bool dominates(std::vector<int>& y);
 
 	/*! \brief Returns the right-hand side of the hyperplane
 	 *
@@ -89,12 +120,28 @@ public:
 	 */
 	void addVertex();
 
+	/*! \brief Counts that a new vertex defines this hyperplane
+	 *
+	 * This function increases by one the number of extreme points of the lower bound set that are located on this
+	 * hyperplane and add the vertex to the list of defining vertex.
+	 * \param vertex Point*. Pointer to the vertex added to the list of defining points.
+	 */
+	void addVertex(Point* vertex);
+
 	/*! \brief Counts that a vertex defining this hyperplane doesn't exists anymore.
 	 *
 	 * This function decreases by one the number of extreme points of the lower bound set that are located on this
 	 * hyperplane.
 	 */
 	void removeVertex();
+
+	/*! \brief Counts that a vertex defining this hyperplane doesn't exists anymore.
+	 *
+	 * This function decreases by one the number of extreme points of the lower bound set that are located on this
+	 * hyperplane and remove the vertex to the list of defining vertex.
+	 * \param vertex Point*. Pointer to the vertex removed from the list of defining points.
+	 */
+	void removeVertex(Point* vertex);
 
 	/*! \brief Register the address of the last copy of this hyperplane.
 	 *
@@ -110,5 +157,32 @@ public:
 	 * \return a pointer to the copy.
 	 */
 	Hyperplane* get_copy();
+
+	/*! \brief Returns the address of the list of defining points
+	 *
+	 * This function returns a pointer to the list of defining points
+	 * \return a pointer to the list
+	 */
+	std::list<Point*>* get_defPts();
+
+	/*! \brief Notify the defining points that this hyperplane will be deleted.
+	 */
+	void notifyDeletion();
+
+	/*! \brief Compute the intersection point between an edge defined by this point, and an hyperplane.
+	*
+	* \param u Point*. A pointer to the first point that defines the edge used for the computation.
+	* \param v Point*. A pointer to the second point that defines the edge used for the computation.
+	* \return lambda, int, s.t. the new point y = lambda * u + (1 - lambda) * v
+	*/
+	double edgeIntersection(Point* u, Point* v);
+
+	/*! \brief Compute the intersection point between an edge defined by this point, and an hyperplane.
+	*
+	* \param u Point*. A pointer to the first point that defines the edge used for the computation.
+	* \param v Point*. A pointer to the second point that defines the edge used for the computation.
+	* \return lambda, int, s.t. the new point y = lambda * u + (1 - lambda) * v
+	*/
+	std::vector<double> edgeIntersection2(Point* u, Point* v);
 };
 

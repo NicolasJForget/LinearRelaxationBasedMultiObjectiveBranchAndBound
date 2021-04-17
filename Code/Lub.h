@@ -119,6 +119,13 @@ public:
 	*/
 	int get_coordinate(int k);
 
+	/*! \brief Return the id of the local upper bound.
+	*
+	* This function returns the id of this local upper bounx
+	* \return the value of the id, as an int
+	*/
+	int get_id();
+
 	/*! \brief Return the defining points of a specific coordinate.
 	*
 	* This function returns a list of pointers to the solutions that defines coordinate k.
@@ -136,5 +143,7 @@ public:
 	* \return a pointer to the list of defining Solutions.
 	*/
 	bool above(Hyperplane* H, Parameters* P);
+
+	bool isRedundant(std::list<LocalUpperBound>& NU);
 };
 

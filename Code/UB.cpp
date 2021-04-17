@@ -32,7 +32,7 @@ void UpperBoundSet::updateUB(Point& P) {
 
     //printLub();
 
-    Solution* newSol = new Solution(P);
+    Solution* newSol = new Solution(P,lp);
     bool nonDominated = true; //!< true if the new Solution sol is not dominated by any points of the incumbentSet so far
     std::list<Solution*>::iterator y = incumbentSet.begin();
     std::list<Solution*>::iterator nextY = incumbentSet.begin();
@@ -47,8 +47,8 @@ void UpperBoundSet::updateUB(Point& P) {
 
     if (nonDominated) {
 
-        std::cout << "\n\n new sol: ";
-        newSol->print();
+        //std::cout << "\n\n new sol: ";
+        //newSol->print();
 
         // search for dominated points
         while (nextY != incumbentSet.end()) {
@@ -56,8 +56,8 @@ void UpperBoundSet::updateUB(Point& P) {
             nextY++;
             if (newSol->dominate(**y)) {
                 (*y)->discard();
-                (*y)->print();
-                std::cout << " is discarded\n";
+                //(*y)->print();
+                //std::cout << " is discarded\n";
             }
         }
 
@@ -127,14 +127,15 @@ void UpperBoundSet::updateLUB(Solution* s) {
         if (u->isStrictlyDominated(s)) {
             u->becomesDiscarded();
             A.push_back(&(*u));
-            std::cout << "  -> new lub discarded: ";
-            u->print();
+            //std::cout << "  -> new lub discarded: ";
+            //u->print();
         }
         else {
+            //u->print();
             for (int k = 0; k < lp->get_p(); k++) {
                 if (u->isDefinedBy(s, k)) {
-                    std::cout << "  -> lub defined by new sol on component " << k << " : ";
-                    u->print();
+                    //std::cout << "  -> lub defined by new sol on component " << k << " : ";
+                    //u->print();
                     u->filterDefiningComponent(k);
                     u->addDefiningComponent(s, k);
                 }
@@ -154,8 +155,8 @@ void UpperBoundSet::updateLUB(Solution* s) {
             if (s->get_objVector(j) > zMax) {
                 lubSet.push_back(LocalUpperBound(s, **uDiscarded, j, genNewId()));
                 //for (int i = 0; i < lp->get_p(); i++) std::cout << lubSet.back().get_definingPoints(i)->size();
-                std::cout << "     -> on component " << j << ", new lub: ";
-                lubSet.back().print();
+                //std::cout << "     -> on component " << j << ", new lub: ";
+                //lubSet.back().print();
             }
         }
     }
@@ -173,6 +174,14 @@ void UpperBoundSet::updateLUB(Solution* s) {
             //std::cout << "size UB is " << lubSet.size() << std::endl;
         }
     } while (uNext != lubSet.end());
+
+    // correction check
+
+    /*for (u = lubSet.begin(); u != lubSet.end(); u++) {
+        if (u->isRedundant(lubSet)) {
+
+        }
+    }*/
 }
 
 /*! \brief Generate a new unique id for a new local upper bound

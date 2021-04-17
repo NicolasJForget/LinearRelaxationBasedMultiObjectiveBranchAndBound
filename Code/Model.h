@@ -71,6 +71,9 @@ private:
 	std::vector<std::vector<int>> A; //!< Matrix of constraint coefficients, as a vector of vector
 	std::vector<int> constrSign; //!< Vector for the constraint signs.
 	std::vector<int> b; //!< Vector for the right-hand side of the constraints.
+	std::vector<int> ub; //!< Vector for the upper bounds on the variables
+	std::vector<int> lb; //!< Vector for the lower bounds on the variables
+	bool binaryPb; //!< true if the problem is binary
 
 public:
 	
@@ -89,10 +92,19 @@ public:
 
 	/*! \brief Fill the MathematicalModel with the instance given in an instance file.
 	 *
-	 * This function fills the MathematicalModel object that corresponds to the instance found in the file.
+	 * This function fills the MathematicalModel object that corresponds to the instance found in the file. It reads the binary
+	 * instances from Forget20.
 	 * \param file string. The path and name of the instance file.
 	 */
 	void fill(std::string file);
+
+	/*! \brief Fill the MathematicalModel with the instance given in an instance file.
+	 *
+	 * This function fills the MathematicalModel object that corresponds to the instance found in the file. It reads instances
+	 * for integer MOIP.
+	 * \param file string. The path and name of the instance file.
+	 */
+	void fill2(std::string file);
 
 	/*! \brief Print the objective matrix.
 	 *
@@ -149,6 +161,34 @@ public:
 	 * \return the sign, as an int.
 	 */
 	int get_signCte(int j);
+
+	/*! \brief Returns true if bounds are given in the instance file.
+	 *
+	 * Check if bounds are given in the instance file by looking at the size of the lb vector.
+	 * \return true if there are bounds.
+	 */
+	bool asBoundsGiven();
+
+	/*! \brief Returns true if the instance is a binary pb.
+	 *
+	 * Check if the instance has binary variables only.
+	 * \return true if it is binary.
+	 */
+	bool isBinary();
+
+	/*! \brief Returns the value of the lower bound of variable $i$.
+	 *
+	 * \param i integer. The index of the constraint.
+	 * \return the value, as an int.
+	 */
+	int getLb(int i);
+
+	/*! \brief Returns the value of the upper bound of variable $i$.
+	 *
+	 * \param i integer. The index of the constraint.
+	 * \return the value, as an int.
+	 */
+	int getUb(int i);
 };
 
 
@@ -324,7 +364,11 @@ public:
 class FeasibilityCheckModel : public CplexModel {
 private:
 	IloNumVarArray x; //!< variables from the initial problem
+	IloNumVar t; //!< slack variable
 	IloRangeArray ptrCtes; //!< a pointer to the constraints on the objectives, to update them as necessary later
+	IloRangeArray ptrCtesInitiales; //!< a pointer to the constraints of the initial problem. Used to get the dual values.
+	IloRangeArray ptrCtesOB; //!< a pointer to the constraints used for objective branching.
+	bool solved; //!< true if is solved to optimality, false otherwise.
 
 public:
 	/*! \brief Default constructor of Feasibility Check.
@@ -348,6 +392,13 @@ public:
 	 */
 	bool solve(std::vector<double>& s);
 
+	/*! \brief Check whether the point returned in the objective space is feasible for this model.
+	 *
+	 * This is done by checking whether the optimal objective value is equal to 0.
+	 * \return true if it is feasible, false otherwise.
+	 */
+	bool isObjectiveSpaceFeasible();
+
 	/*! \brief retreive the pre-image computed.
 	 *
 	 * This function retreive from cplex the pre-image of the reference point used to solve the model by reading the x vector
@@ -356,6 +407,20 @@ public:
 	 */
 	void retrieveSolutionFeasibility(std::vector<double>& s);
 
+	/*! \brief Extracts the normal vector of the facet computed.
+	 *
+	 * This function extract the normal vector of the facet computed with this model. It is given by the w vector.
+	 * \return the normal vector, as a vector of double.
+	 */
+	std::vector<double> extractNormalVector();
+
+	/*! \brief Extracts the constant of the equation of the facet.
+	 *
+	 * This function extract the constant of the equation of the facet computed. It given by $b^Tu - e^Tv$.
+	 * \return the constant of the equation of the facet.
+	 */
+	double extractConstant(MathematicalModel& LP, BranchingDecisions* branchDec);
+
 	/*! \brief Adjust the bounds of the variables & constraints given some branching decisions
 	 *
 	 * This function extract information from the branching decisions and adjust the objective coefficients
@@ -363,6 +428,20 @@ public:
 	 * \param bd BranchingDecisions. The data structure that describes the branching decisions to apply.
 	 */
 	void adjustBounds(BranchingDecisions& bd);
+
+	/* \brief Return true if the LP is solved to optimality since last call.
+	 *
+	 * This function returns the value of the member solved, which is true if the last LP is solved to optimality, false otherwise.
+	 * \return true if the last LP solved is solved to optimality.
+	 */
+	bool getStatus();
+
+	/* \brief Return true if the LP is solved to optimality since last call.
+	 *
+	 * This function returns the value of the member solved, which is true if the last LP is solved to optimality, false otherwise.
+	 * \return true if the last LP solved is solved to optimality.
+	 */
+	bool printStatus();
 };
 
 
@@ -379,6 +458,7 @@ class WeightedSumModel : public CplexModel {
 private:
 	IloNumVarArray x; //!< variables from the initial problem
 	IloObjective ptrObj; //!< the objective function object, explicitely stored here to be modified prior to solving
+	IloRangeArray ptrCtesOB; //!< a pointer to the constraints used for objective branching.
 
 public:
 	/*! \brief Default constructor of Weighted Sum.

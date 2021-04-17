@@ -1,0 +1,12 @@
+2 1 4 7 28
+
+maxsum maxsum maxsum maxsum
+
+9 6
+4 4
+5 9
+1 2
+
+5 9
+
+1 10

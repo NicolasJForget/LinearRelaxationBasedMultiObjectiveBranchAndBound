@@ -9,10 +9,12 @@
 #include <list>
 #include <vector>
 #include "Model.h"
-#include "LB.h"
+#include "LB2.h"
 #include "UB.h"
 #include "GlobalConstants.h"
+#include "Stat.h"
 #include "timer.hpp"
+#include "SLUB.h"
 
 class Node
 {
@@ -23,10 +25,12 @@ private:
 	double score; //!< a score, used for node selection
 	BranchingDecisions branchingDecision; //!< a data structure that save the branching decisions made in this node. See GlobalConstants.h for more details.
 	int splittingIndex; //!< the index of the last variable splitted, i.e. the branching decision that led to the creation of this node.
-	//int status; //!< defines the status of the node
-	Timer timeLBComputation;
-	Timer timeDominanceTest;
-	Timer timeUpdateUB;
+	std::list<int> ndLub; //!< list of non-dominated local upper bounds.
+	Statistics* stat; //!< a pointer to the data structure managing statistics
+	int depth;
+	Timer timeLBComputation; // depreciated
+	Timer timeDominanceTest; // depreciated
+	Timer timeUpdateUB; // depreciated
 
 public:
 	/*! \brief Default constructor of a node.
@@ -46,9 +50,10 @@ public:
 	 *
 	 * This function builds the root node.
 	 * \param lp MathematicalModel*. A pointer to the initial problem.
-	 * \param par Parameters. The parameters of the algorithm.
+	 * \param par Parameters*. The parameters of the algorithm.
+	 * \param stat Statistics*. A pointer to the statistics of the BB
 	 */
-	Node(MathematicalModel* lp, Parameters* par);
+	Node(MathematicalModel* lp, Parameters* par, Statistics* stat);
 
 	/*! \brief Creates a node given a splitting index and a bound.
 	 *
@@ -57,17 +62,18 @@ public:
 	 * \param index int. The index of the variable to split.
 	 * \param bound int. States the sign of the new constraint: are we adding an upper or a lower bound value on a variable?
 	 * \param val int. The value of the bound added on the variable, i.e. the right-hand side of the new branching constraint.
+	 * \param slub SLUB. The super local upper bound that defines the sub-problem in the objective space.
 	 */
-	Node(Node& nd, int index, int bound, int val);
+	Node(Node& nd, int index, int bound, int val, SLUB& slub);
 
 	/*! \brief Process the node
 	 *
 	 * This function process the node by computing a lower bound set, updating the lower bound set, and detecting 
 	 * if the node can be fathomed.
 	 * \param U UpperBoundSet. The upper bound set of the B&B.
-	 * \param stat Statistics*. Pointer to statistics.
+	 * \param iteration int. The number of the iteration in the B&B.
 	 */
-	void process(UpperBoundSet& U);
+	void process(UpperBoundSet& U, int iteration);
 
 	/*! \brief Check whether the node is fathomed.
 	 *
@@ -81,15 +87,17 @@ public:
 	 * This function splits the problem contained in this node in the objective space. For each sub-problem created, it calls
 	 * the split function in the variable space. Store the new nodes created in the list Q.
 	 * \param Q pointer to a list of pointers of Nodes. The list in which the new nodes created are stored.
+	 * \param U pointer to the upper bound set. Used for computing objective branching.
 	 */
-	void splitOS(std::list<Node*>* Q);
+	void splitOS(std::list<Node*>* Q, UpperBoundSet* U, int iteration);
 
 	/*! \brief Split the problem in the variable space
 	 *
 	 * This function splits the problem contained in this node in the variable space. Store the new nodes created in the list Q.
 	 * \param Q pointer to a list of pointers of Nodes. The list in which the new nodes created are stored.
+	 * \param slub SLUB. Defines the sub-problem in the objective space split in the decision space.
 	 */
-	void splitVS(std::list<Node*>* Q);
+	void splitVS(std::list<Node*>* Q, SLUB& slub, int iteration);
 
 	/*! \brief Prints the node
 	 *
@@ -108,7 +116,7 @@ public:
 	 * This function writes the statistics of this node.
 	 * \param stat Statistics*. Pointer to the struct where statistics are recorded.
 	 */
-	void getStatistics(Statistics* stat);
+	//void getStatistics(Statistics* stat);
 
 	/*! \brief Rreturn the status of the node
 	 *
@@ -116,5 +124,25 @@ public:
 	 * \return status of the node, as an integer
 	 */
 	int getStatus();
+
+	/*! \brief Rreturn the split index.
+	 *
+	 * Returns the last split index in this node.
+	 * \return the index, as an integer
+	 */
+	int getSplittingIndex();
+
+	/*! \brief Rreturn the depth of the node.
+	 *
+	 * Returns the depth fo the node in the BB tree
+	 * \return the depth, as an integer
+	 */
+	int getDepth();
+
+	/*! \brief Print the LB of the node.
+	 */
+	void showLB();
+
+	bool isOurCulprit();
 };
 

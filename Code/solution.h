@@ -9,6 +9,7 @@
 #include <list>
 #include <vector>
 #include "Point.h"
+#include "Model.h"
 
 class Solution {
 private:
@@ -29,7 +30,7 @@ public:
 	 * objective vector.
 	 * \param pts Point. The point the solution is created from.
 	 */
-	Solution(Point& pts);
+	Solution(Point& pts, MathematicalModel* lp);
 
 	/*! \brief Check whether this Solution dominates another Solution y.
 	 *

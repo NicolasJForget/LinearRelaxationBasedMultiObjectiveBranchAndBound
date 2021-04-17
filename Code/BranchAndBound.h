@@ -13,6 +13,7 @@
 #include "Node.h"
 #include "UB.h"
 #include "GlobalConstants.h"
+#include "Stat.h"
 #include "timer.hpp"
 
 class BranchAndBound
@@ -23,6 +24,8 @@ private:
 	UpperBoundSet U; //!< upper bound set
 	Parameters P; //!< parameters of the branch-and-bound algorithm
 	Statistics stat; //!< statistics about the branch-and-bound
+	std::string inst; //!< the instance solved using this BB
+	std::string pbClass; //!< the problem class of the instance solved
 
 public:
 	/*! \brief Default constructor of a branch-and-bound
@@ -66,6 +69,12 @@ public:
 	 * This function prints various statistics about this branch-and-bound run.
 	 */
 	void printStatistics();
+
+	/*! \brief Write the statistic of this run to the stat file (results.txt / .csv)
+	 *
+	 * This function write the statistics of this BB run to the stat file.
+	 */
+	void writeStatistics();
 
 	/*! \brief Reset the branch-and-bound
 	 *

@@ -7,12 +7,15 @@
 #pragma once
 #include <stdlib.h>
 #include <list>
+#include <algorithm>
 #include "Model.h"
 #include "Hyperplane.h"
 #include <vector>
 #include "Point.h"
 #include "UB.h"
 #include "GlobalConstants.h"
+#include "Stat.h"
+#include "SLUB.h"
 
 
 class LowerBoundSet {
@@ -20,6 +23,7 @@ protected:
 	MathematicalModel* lp; //!< a pointer to the initial problem
 	int status; //!< status of the lower bound set
 	BranchingDecisions* branchDec; //!< a pointer to the branching decision of the node it is contained in
+	int iteration; //!< number of the iteration of the B&B tree
 
 public:
 	/*! \brief Default constructor of a lower bound set.
@@ -73,10 +77,28 @@ public:
 	 * This function checks whether the upper bound set U dominates this lower bound set. Throw an error if the algorithm
 	 * enters in this version of the method. Depending on the parameters of the algorithm, all the local upper bounds may
 	 * have to be tested for dominance, even though it is already determined that the node cannot be fathomed by dominance.
-	 * \param U UpperBoundSet. The upper bound set used to do the dominance test.
+	 * \param U UpperBoundSet. The upper bound set used to do the dominance test. Note that the local upper bounds are shifted
+	 * of -1 for each component when tested for dominance.
 	 * \param param Parameters. Used to check whether all the local upper bounds have to be tested.
+	 * \param ndLub list of LocalUpperBound. List of ids of the local upper bounds known as non-dominated by this LB set.
 	 */
-	virtual void applyDominanceTest(UpperBoundSet& U, Parameters* param);
+	virtual void applyDominanceTest(UpperBoundSet& U, Parameters* param, std::list<int>& ndLub);
+
+	/*! \brief A virtual function that checks whether this lower bound set the super local upper bound a point y.
+	 *
+	 * This function checks whether the point y is dominated by the lower bound set. Throw an error if the algorithm
+	 * enters in this version of the method. Returns true if this is the case.
+	 * \param U UpperBoundSet. The upper bound set used to do the dominance test.
+	 * \return true if y is dominated by the lower bound set.
+	 */
+	virtual bool dominates(std::vector<int>& y);
+
+	/*! \brief Set the number of the iteration.
+	 *
+	 * \param it int. The number of the iteration.
+	 * \return true if y is dominated by the lower bound set.
+	 */
+	void setIteration(int it);
 };
 
 // ===============================================================================================================================
@@ -103,6 +125,8 @@ private:
 	std::vector <double> interiorPoint; //!< interior point from benson's method, such that it dominates antiIdealPoint and is weakly dominated by at least one feasible point.
 	std::vector <Hyperplane*> boundingBox; //!< list of p hyperplanes that defines the bounding box of the linear relaxation. It corresponds to the dominated cone defined by antiIdeal
 	bool warmstarted; //!< true if the linear relaxation is warmstarted, false otherwise.
+	bool firstGeneration; //!< true if this linear relaxation object is solved for the first time. False if it has been solved at least once (i.e. compute has been called at least once).
+	bool checkPointDestroyed; //!< true if the check point has been destroyed, which means that a new one should be extracted
 
 	// Representations
 	std::list <Hyperplane*> facets; //!< list of hyperplanes, that defines the facet of the linear relaxation.
@@ -110,6 +134,9 @@ private:
 
 	// Statistics
 	int nbIterations;
+	//LPRelaxStat stat;
+	int call; //!< for debug purpose - number of calls to lb set solved so far
+	Statistics* S;
 
 public:
 
@@ -131,8 +158,9 @@ public:
 	 * \param db DualBensonModel*. A pointer to the cplex model that computes the dual from benson's method.
 	 * \param bvpFurthestFeasiblePointModel*. A pointer to the cplex model that computes the points on the boundary of the LB set in benson's method,
 	 * \param branchingDec BranchingDecisions. The data structure that describes the branching decisions to apply to this LB set.
+	 * \param S Statistics*. A pointer to the statistics of the BB
 	 */
-	LinearRelaxation(MathematicalModel* lp, WeightedSumModel* ws, FeasibilityCheckModel* feas, DualBensonModel* db, FurthestFeasiblePointModel* bvp, BranchingDecisions* branch);
+	LinearRelaxation(MathematicalModel* lp, WeightedSumModel* ws, FeasibilityCheckModel* feas, DualBensonModel* db, FurthestFeasiblePointModel* bvp, BranchingDecisions* branch, Statistics* S);
 
 	/*! \brief Default constructor of a linear relaxation, with models built internally.
 	 *
@@ -141,8 +169,9 @@ public:
 	 * relaxation is not warmstarted.
 	 * \param lp MathematicalModel*. A pointer to the problem this lower bound set refers to.
 	 * \param branchingDec BranchingDecisions. The data structure that describes the branching decisions to apply to this LB set.
+	 * \param S Statistics*. A pointer to the statistics of the BB
 	 */
-	LinearRelaxation(MathematicalModel* lp, BranchingDecisions* branch);
+	LinearRelaxation(MathematicalModel* lp, BranchingDecisions* branch, Statistics* S);
 
 	/*! \brief The copy constructor for a linear relaxation
 	*
@@ -176,8 +205,28 @@ public:
 	 * both representations, i.e. extrPoints and facets. It is done by using the on-line vertex enumeration algorithm
 	 * from Chen, Hansen and Jaumard (1993).
 	 * \param H Hyperplane*. A pointer to the new hyperplane added to the representation.
+	 * \param ptsDiscardedByH Point*. A pointer to the point that is cut out of the lower bound set by the new hyperplane H.
 	 */
-	void updatePolyhedron(Hyperplane* H);
+	void updatePolyhedron(Hyperplane* H, Point* ptsDiscardedByH);
+
+	/*! \brief Update the representations of the linear relaxation by adding a new hyperplane.
+	 *
+	 * This function computes the new polyhedron obtained by intersecting by the half-space defined by H. It updates
+	 * both representations, i.e. extrPoints and facets. It is done by using the on-line vertex enumeration algorithm
+	 * from Chen, Hansen and Jaumard (1993).
+	 * \param H Hyperplane*. A pointer to the new hyperplane added to the representation.
+	 * \param ptsDiscardedByH Point*. A pointer to the point that is cut out of the lower bound set by the new hyperplane H.
+	 */
+	void updatePolyhedron2(Hyperplane* H, Point* ptsDiscardedByH);
+
+	/*! \brief Correct the set of facet-defining hyperplanes by removing only face-defining ones.
+	 *
+	 * CAN BE MORE EFFICIENT BY FILTERING EACH TIME A NEW REDUNDANT HPP IS FOUND.
+	 * This function checks whether there are any hyperplanes remaning that defines a face (and not a facet) of the LB set.
+	 * If one is found, it is removed. Once all hyperplanes have been checked, the adjacency list of the extreme points are
+	 * consequently corrected.
+	 */
+	void correctHyperplanes();
 
 	/*! \brief Identify the actual extreme point of the lower bound set
 	 *
@@ -225,7 +274,81 @@ public:
 	 * \param U UpperBoundSet. The upper bound set used to do the dominance test.
 	 * \param param Parameters. Used to check whether all the local upper bounds have to be tested.
 	 */
-	virtual void applyDominanceTest(UpperBoundSet& U, Parameters* param);
+	virtual void applyDominanceTest(UpperBoundSet& U, Parameters* param, std::list<int>& ndLub);
+
+	/*! \brief A virtual function that checks whether this lower bound set the super local upper bound a point y.
+	 *
+	 * This function checks whether the point y is dominated by the lower bound set. Throw an error if the algorithm
+	 * enters in this version of the method. Returns true if this is the case. Specific the the linear relaxation: 
+	 * it is checked on which side of each hyperplane that constitute the LB set the point y is located. If it is not
+	 * above at least one of these, the point is not dominated and the function returns false.
+	 * \param U UpperBoundSet. The upper bound set used to do the dominance test.
+	 * \return true if y is dominated by the lower bound set.
+	 */
+	virtual bool dominates(std::vector<int>& y);
+
+	/*! \brief Computes the index of the most often fractional variable among the extreme points.
+	 *
+	 * This functions returns the index of the most often fractional variable in the lower bound set located in the area
+	 * defined by the super local upper bound slub. This is done by checking each extreme point that dominates slub.
+	 * If there is no fractional variable, it returns the index of the most fractional in average (i.e. avg value closest
+	 * to 0.5). If there is no point in the given area, it returns the index of the first free variable it finds.
+	 * \param slub SLUB. The slub that defines the part of the objective space to search in.
+	 * \return the index of the most often fractional variable, as an int.
+	 */
+	int computeMostOftenFractionalIndex(SLUB& slub);
+
+	/*! \brief Computes the median value of variable $x_i$ among the extreme points of the linear relaxation.
+	 *
+	 * This functions returns the median value of the variable $x_i$ among the extreme points of the LP relax. The integer values
+	 * are ignored in the first place. If there is no decimal values, the integer ones are then considered.
+	 * \param slub SLUB. The slub that defines the part of the objective space to search in.
+	 * \param i int. Index of the splitting variable.
+	 * \return the index of the most often fractional variable, as an int.
+	 */
+	int computeMedianSplittingValue(SLUB& slub, int i);
+
+	/*! \brief Check whether a point y is weakly dominated by an existing extreme point
+	 *
+	 * \param y Point. A pointer to the point to look at.
+	 * \return true if there exists an extreme point that weakly dominates y.
+	 */
+	bool isWeeklyDominated(Point* y);
+
+	/*! \brief Compute the extreme rays derived from hyperplane H and attached to vertex y.
+	*
+	* \param vtx Point*. A pointer to the vertex.
+	* \param H Hyperplane*. A pointer to the hyperplane potentially generating extreme rays.
+	* \param allNewRays. A pointer to the vector that will contains all the new rays.
+	*/
+	void computeExtremeRays(Point* vtx, Hyperplane* H, std::vector<Point*>* allNewRays);
+
+	/*! \brief Check whether this extreme ray is valid.
+	*
+	* Search among the other new rays whether there is a ray such that the set of active hyperplane of this point is included in
+	* the set of active hyperplanes of the other point.
+	* \param vtx Point*. A pointer to the vertex.
+	* \param allNewRays. A pointer to the vector that will contains all the new rays.
+	* \return true if it is not discarded.
+	*/
+	bool filterExtremeRays(Point* vtx, std::vector<Point*>* allNewRays);
+
+	/* Generate the 2^p points of the box defined by antiIdealPoint and yI.
+	 *
+	 * Done in a recursive way.
+	 * \param yI. The ideal point, used for the definition of the box.
+	 * \param coord. Coordinates of the the point being built.
+	 * \param int index. Used for the recursion.
+	 * \param H. Vector of pointers to the hyperplanes that defines the ideal point yI.
+	 */
+	void generateBox(std::vector<double> yI, std::vector<double> coord, int index, std::vector<Hyperplane*> H);
+
+	/*! \brief Write into stat the statistics about this LP-relax
+	 *
+	 * This function update the lpStat field of stat.
+	 * \param statBB Statistics*. A pointer to the data structure that store statistics for the whole Branch and Bound
+	 */
+	//void getStatistics(Statistics* statBB);
 
 	/*! \brief Return the pointer to the weighted sum model.
 	 *
@@ -254,4 +377,44 @@ public:
 	 * \return a pointer to a FurthestFeasiblePointModel.
 	 */
 	FurthestFeasiblePointModel* getFurthestFeasiblePointModel();
+
+	/*! \brief Return true if the point should be checked.
+	 *
+	 * This function checks whether (1) the point has already been checked by Cplex and (2) if not, if it is weakly dominated by
+	 * another existing point. If none of these conditions are met, the point should be checked for feasibility and the function
+	 * returns true.
+	 * \param y Point*. A pointer to the point being tested.
+	 * \return true if the point should be checked.
+	 */
+	bool shouldBeChecked(Point* y);
+
+	/*! \brief Clear the redundant facets.
+	 */
+	void clearRedundantFacets();
+
+	/*! \brief Clear the dsicarded points.
+	 */
+	void clearDiscardedPoints();
+
+	/*! \brief Updates the adjacency lists of the points contained in lists N and D
+	 *
+	 * Done using the double description method (vertex enumeration).
+	 * \param N, list of Point*. The list of the polyhedron's new vertices.
+	 * \param D, list of Point*. The list of the polyhedron's degenerate vertices.
+	 */
+	void updateAjacencyLists(std::list<Point*>& N, std::list<Point*>& D);
+
+	/*! \brief Clear the status of all the concerned points before the next iteration.
+	 *
+	 * Note: D (degenerate points) is included in M (modified points).
+	 * \param N, list of Point*. The list of the polyhedron's new vertices.
+	 * \param M, list of Point*. The list of the polyhedron's degenerate vertices.
+	 */
+	void clearStatus(std::list<Point*>& N, std::list<Point*>& M);
+
+	void debugCrashError(Point* vtx);
+
+	void computeStatusPoints(Hyperplane* H, Point* u);
+
+	void computeStatusPoints2(Hyperplane* H, Point* u);
 };

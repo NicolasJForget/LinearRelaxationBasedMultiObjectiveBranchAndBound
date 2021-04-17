@@ -57,7 +57,7 @@ LocalUpperBound::LocalUpperBound(Solution* y, LocalUpperBound& u, int j, int id)
             for (yDef = defPts->begin(); yDef != defPts->end(); yDef++) {
                 //std::cout << " new def pts: ";
                 //(*yDef)->print();
-                if ((*yDef)->get_objVector(j) < y->get_objVector(j)) {
+                if ( !(*yDef)->isDiscarded() && (*yDef)->get_objVector(j) < y->get_objVector(j)) {
                     definingPoints[k].push_back(*yDef);
                 }
             }
@@ -107,19 +107,41 @@ bool LocalUpperBound::isStrictlyDominated(Solution* y) {
  */
 bool LocalUpperBound::isDefinedBy(Solution* y, int k) {
 
-    if (k == 1 && y->get_objVector(k) == -24) {
-        std::cout << "on passe ici\n";
-    }
+    //if (k == 1 && y->get_objVector(0) == -29 && y->get_objVector(1) == -21 && y->get_objVector(2) == -30) {
+    //    std::cout << "on passe ici\n";
+    //    y->print();
+    //    std::cout << " vs ";
+    //    print();
+    //}
 
     bool definedBy = false;
+    //std::cout << " COMP " << k << " : ";
+    //print();
+    //std::cout << " vs ";
+    //y->print();
+
     if (coordinates[k] == y->get_objVector(k)) {
+        //std::cout << "true, equal... ";
         definedBy = true;
+        //if (k == 1 && y->get_objVector(0) == -29 && y->get_objVector(1) == -21 && y->get_objVector(2) == -30) {
+        //    std::cout << "check -> ";
+        //    y->print();
+        //    std::cout << " vs ";
+        //    print();
+        //}
         for (int i = 0; i < coordinates.size(); i++) {
-            if (i != k && coordinates[i] <= y->get_objVector(k)) { // strict ?
+            //if (k == 1 && y->get_objVector(0) == -29 && y->get_objVector(1) == -21 && y->get_objVector(2) == -30) {
+            //    std::cout << "\n\n\n\n\n objective " << i << " -> coord = " << coordinates[i] << " , solution = " << y->get_objVector(i);
+            //}
+            if (i != k && coordinates[i] <= y->get_objVector(i)) { // strict ?
                 definedBy = false;
             }
+            //else {
+            //    std::cout << i << " true, defined ... ";
+            //}
         }
     }
+    //std::cout << "\n";
 
     return definedBy;
 }
@@ -169,7 +191,7 @@ int LocalUpperBound::computeCriticalValue(int j) {
 
     max = INT_MIN;
     for (int k = 0; k < p; k++) {
-        //std::cout << " coord " << k << std::endl;
+        //std::cout << " coord " << k << ", nb of defining points: " << definingPoints[k].size() << std::endl;
         if (k != j && definingPoints[k].size() >= 1) {
             min = INT_MAX;
             nextY = definingPoints[k].begin();
@@ -177,17 +199,20 @@ int LocalUpperBound::computeCriticalValue(int j) {
             while (nextY != definingPoints[k].end()) {
                 y = nextY;
                 nextY++;
-                if ((*y)->isDiscarded()) {
-                    definingPoints[k].erase(y);
-                }
-                else {
+                //else {
                     //std::cout << " -> obj " << k << ", pt is: ";
                     //(*y)->print();
-                    if ((*y)->get_objVector(j) < min) {
-                        //(*y)->print();
-                        min = (*y)->get_objVector(j);
-                    }
+                if ((*y)->get_objVector(j) < min) {
+                    //(*y)->print();
+                    min = (*y)->get_objVector(j);
                 }
+                //}
+                //if ((*y)->isDiscarded()) {
+                //    definingPoints[k].erase(y);
+                    //if (definingPoints[k].empty()) {
+                    //    min = INT_MIN; // case where in fact, the list is empty, i.e. we should not have entered this loop and thus set min to INT_MAX
+                    //}
+                //}
             }
             if (min > max) {
                 max = min;
@@ -222,16 +247,44 @@ bool LocalUpperBound::above(Hyperplane* H, Parameters* P) {
 
     bool above = false;
     double lhs = 0;
+    double epsilon = 0; // 0.001;
 
     for (int k = 0; k <= H->get_dim(); k++) {
         lhs += H->get_normalVector(k) * (coordinates[k] - P->GCD[k]);
     }
 
-    if (lhs >= H->get_rhs()) {
+    if (lhs + epsilon >= H->get_rhs()) {
         above = true;
     }
 
     return above;
+}
+
+bool LocalUpperBound::isRedundant(std::list<LocalUpperBound>& NU) {
+
+    std::list<LocalUpperBound>::iterator u;
+    bool isDomi;
+
+    for (u = NU.begin(); u != NU.end(); u++) {
+        if (&(*u) != this) {
+            isDomi = true;
+            for (int k = 0; k != coordinates.size(); k++) {
+                if (coordinates[k] < u->get_coordinate(k)) {
+                    isDomi = false;
+                    break;
+                }
+            }
+            if (isDomi) {
+                std::cout << " AH ! ";
+                print();
+                std::cout << " is domi by ";
+                u->print();
+                std::cout << "\n";
+            }
+        }   
+    }
+
+    return isDomi;
 }
 
 /* ==========================================================
@@ -260,4 +313,13 @@ int LocalUpperBound::get_coordinate(int k) {
 */
 std::list<Solution*>* LocalUpperBound::get_definingPoints(int k) {
     return &definingPoints[k];
+}
+
+/*! \brief Return the id of the local upper bound.
+ *
+ * This function returns the id of this local upper bounx
+ * \return the value of the id, as an int
+ */
+int LocalUpperBound::get_id() {
+    return id;
 }
