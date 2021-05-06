@@ -2,12 +2,14 @@
 #include <stdlib.h>
 
 struct Parameters {
-	Parameters() : LBset(0), nodeSelection(0), variableSelection(0), objectiveBranching(0), GCD(0) {}
+	Parameters() : LBset(0), nodeSelection(0), variableSelection(0), objectiveBranching(0), branchingValueSelection(0), timeOut(3600), GCD(0) {}
 
 	int LBset;
 	int nodeSelection;
 	int variableSelection;
 	int objectiveBranching;
+	int branchingValueSelection;
+	int timeOut;
 	std::vector<int> GCD; //!< greatest common divisor for each objective
 };
 
@@ -82,6 +84,10 @@ const int NO_OBJECTIVE_BRANCHING = 400; // implemented
 const int CONE_OBJECTIVE_BRANCHING = 401;
 const int FULL_OBJECTIVE_BRANCHING = 402; // implemented but /!\ mistake -> this is actually cone OB !!!
 
+// branching value selection
+const int MEDIAN = 500;
+const int MOST_OFTEN_FRACTIONAL_VALUE = 501;
+
 // extreme rays
 const double M = 999999989;
 const double EPS_LAMBDA = 0.00001;
@@ -89,8 +95,9 @@ const double EPS_PROXIMITY = 0.000001;
 
 // debug
 const double PRINT_DEBUG = -1;
-const double DEBUG_IT = -1; // 3198
-const int CORRECTION_WARMSTART = 7;
+const double DEBUG_IT = -1; // 4143
+const int CORRECTION_WARMSTART = 700;
 
 // timers
-const int TIME_OUT = 600;
+const int TIME_OUT = 3600;
+const int TIME_OUT_LB = 3600;

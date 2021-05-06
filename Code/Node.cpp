@@ -278,7 +278,13 @@ void Node::splitVS(std::list<Node*>* Q, SLUB& slub, int iteration) {
                 Q->push_back(new Node(*this, index, IS_LB, 1, slub));
             }
             else {
-                int splittingValue = dynamic_cast<LinearRelaxation*>(LB)->computeMedianSplittingValue(slub, index);
+                int splittingValue = 0;
+                if (param->branchingValueSelection == MEDIAN)
+                    splittingValue = dynamic_cast<LinearRelaxation*>(LB)->computeMedianSplittingValue(slub, index);
+                else if (param->branchingValueSelection == MOST_OFTEN_FRACTIONAL_VALUE)
+                    splittingValue = dynamic_cast<LinearRelaxation*>(LB)->computeMostOftenFractionalSplittingValue(slub, index);
+                else
+                    throw std::string("Error: branching value selection not supported.");
                 Q->push_back(new Node(*this, index, IS_UB, splittingValue, slub));
                 Q->push_back(new Node(*this, index, IS_LB, splittingValue + 1, slub));
                 //if (iteration == 1436)
@@ -302,10 +308,10 @@ void Node::print() {
     std::cout << "\n\n\n ============= New node ===============\n\n";
 
     for (int i = 0; i < P->get_n(); i++) {
-        if (branchingDecision.lb[i] >= 1) { //change for integer var + update lb & ub only if relevant when branching?
+        if (branchingDecision.lb[i] > P->getLb(i)) { //change for integer var + update lb & ub only if relevant when branching?
             std::cout << " x[" << i << "] >= " << branchingDecision.lb[i] << std::endl;
         }
-        if (branchingDecision.ub[i] <= 0) { //change for integer var + update lb & ub only if relevant when branching?
+        if (branchingDecision.ub[i] < P->getUb(i)) { //change for integer var + update lb & ub only if relevant when branching?
             std::cout << " x[" << i << "] <= " << branchingDecision.ub[i] << std::endl;
         }
     }
@@ -395,23 +401,34 @@ int Node::getDepth() {
  */
 void Node::showLB() {
     LB->print();
+    std::cout << "lb :";
+    for (int i = 0; i < P->get_n(); i++) {
+        std::cout << " " << branchingDecision.lb[i];
+    }
+    std::cout << "\nub :";
+    for (int i = 0; i < P->get_n(); i++) {
+        std::cout << " " << branchingDecision.ub[i];
+    }
+    std::cout << "\n";
 }
 
 bool Node::isOurCulprit() {
 
     if (
-        branchingDecision.lb[5] == 2 &&
-        branchingDecision.lb[8] == 1 &&
-        branchingDecision.lb[9] == 1 &&
-        branchingDecision.ub[1] == 0 &&
+        //branchingDecision.lb[0] == 1 &&
+        //branchingDecision.lb[4] == 1 &&
+        branchingDecision.lb[15] == 3 &&
         branchingDecision.ub[2] == 0 &&
-        branchingDecision.ub[3] == 0 &&
-        branchingDecision.ub[4] == 2 &&
-        branchingDecision.ub[5] == 2 &&
+        branchingDecision.ub[3] == 1 &&
+        branchingDecision.ub[4] == 1 &&
         branchingDecision.ub[6] == 0 &&
         branchingDecision.ub[7] == 0 &&
-        branchingDecision.ub[8] == 1 &&
-        branchingDecision.ub[9] == 1
+        branchingDecision.ub[12] == 0 &&
+        //branchingDecision.ub[14] == 0 &&
+        branchingDecision.ub[15] == 3 &&
+        //branchingDecision.ub[16] == 0 &&
+        branchingDecision.ub[18] == 3
+        //branchingDecision.ub[19] == 0
         )
         return true;
     else

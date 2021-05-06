@@ -40,7 +40,7 @@ void expe() {
         for (auto configLB : LB) {
             for (auto configNodeSel : nodeSel) {
                 for (auto configOB : objectiveBranching) {
-                    B.run(configLB, configNodeSel, MOST_OFTEN_FRACTIONAL, configOB);
+                    B.run(configLB, configNodeSel, MOST_OFTEN_FRACTIONAL, configOB, MEDIAN, 600);
                     B.printStatistics();
                     B.writeStatistics();
                 }
@@ -51,18 +51,32 @@ void expe() {
 }
 
 
-int main()
+int main(int argc, char** argv)
 {
     
-    std::cout.precision(4);
-    expe();
+    std::cout.precision(6);
 
-    //std::string inst = "C:/Users/au643334/source/repos/LinearRelaxationBasedMultiObjectiveBranchAndBound/Code/instances/Kirlik14-ILP_p-3_n-10_m-5_ins-3.dat";
+    // from batch script
+
+    std::string instance = std::string(argv[1]);
+    BranchAndBound B = BranchAndBound(instance);
+
+    B.run(atoi(argv[2]), atoi(argv[3]), atoi(argv[4]), atoi(argv[5]), atoi(argv[6]), atoi(argv[7]));
+    B.printStatistics();
+    B.writeStatistics();
+
+    // from inside VS
+
+    //expe();
+
+    //std::string inst = "C:/Users/au643334/source/repos/LinearRelaxationBasedMultiObjectiveBranchAndBound/Code/instances/test.txt";
+    //std::string inst = "C:/Users/au643334/source/repos/LinearRelaxationBasedMultiObjectiveBranchAndBound/Code/instances/expeData/newInstances/Kirlik14-ILP_p-4_n-20_m-10_ins-5.dat";
+    //std::string inst = "C:/Users/au643334/source/repos/LinearRelaxationBasedMultiObjectiveBranchAndBound/Code/instances/Kirlik14-ILP_p-5_n-20_m-10_ins-2.dat";
     //std::string inst = "C:/Users/au643334/source/repos/LinearRelaxationBasedMultiObjectiveBranchAndBound/Code/instances/debug_3obj_int.dat";
     //std::string inst = "C:/Users/au643334/source/repos/LinearRelaxationBasedMultiObjectiveBranchAndBound/Code/instances/expeData/waiting/Forget21-UFLP_4_6_1-1000_1-100_spheredown_1_1.txt";
     //std::string inst = "C:/Users/au643334/source/repos/LinearRelaxationBasedMultiObjectiveBranchAndBound/Code/instances/UFLP6-3.txt";
     //std::string inst = "C:/Users/au643334/source/repos/LinearRelaxationBasedMultiObjectiveBranchAndBound/Code/instances/checkLub4obj.txt";
-    //std::string inst = "C:/Users/au643334/source/repos/LinearRelaxationBasedMultiObjectiveBranchAndBound/Code/instances/KP10-6_int.txt"; // KP10-4Debug2
+    //std::string inst = "C:/Users/au643334/source/repos/LinearRelaxationBasedMultiObjectiveBranchAndBound/Code/instances/KP10-4_int.txt"; // KP10-4Debug2
     //std::string inst = "C:/Users/au643334/source/repos/LinearRelaxationBasedMultiObjectiveBranchAndBound/Code/instances/counterProofHyperplanes.txt";
     //std::string inst = "C:/Users/au643334/Documents/MOrepo-Forget20/instances/raw/Forget20-UFLP_6_3_1-1000_1-100_spheredown_1_1.raw"; //Forget20-KP_20_3_1-1000_spheredown_3_1.raw
     //std::string inst = "C:/Users/au643334/source/repos/LinearRelaxationBasedMultiObjectiveBranchAndBound/Code/instances/KP20-debug.raw";
@@ -71,20 +85,20 @@ int main()
 
     // run 1
 
-    //B.run(WARMSTARTED_LP_RELAX, BREADTH_FIRST, MOST_OFTEN_FRACTIONAL, NO_OBJECTIVE_BRANCHING); //FULL_OBJECTIVE_BRANCHING
+    //B.run(WARMSTARTED_LP_RELAX, BREADTH_FIRST, MOST_OFTEN_FRACTIONAL, NO_OBJECTIVE_BRANCHING, MEDIAN, TIME_OUT); //FULL_OBJECTIVE_BRANCHING
     //B.printYN();
     //B.printStatistics();
 
     // run 2
 
-    //B.run(LP_RELAX, DEPTH_FIRST, MOST_OFTEN_FRACTIONAL, CONE_OBJECTIVE_BRANCHING);
+    //B.run(WARMSTARTED_LP_RELAX, DEPTH_FIRST, MOST_OFTEN_FRACTIONAL, CONE_OBJECTIVE_BRANCHING, MEDIAN, TIME_OUT);
     //B.printYN();
     //B.printStatistics();
     //B.writeStatistics();
 
     // run 3
 
-    //B.run(WARMSTARTED_LP_RELAX, DEPTH_FIRST, MOST_OFTEN_FRACTIONAL, NO_OBJECTIVE_BRANCHING);
+    //B.run(WARMSTARTED_LP_RELAX, DEPTH_FIRST, MOST_OFTEN_FRACTIONAL, CONE_OBJECTIVE_BRANCHING, MOST_OFTEN_FRACTIONAL_VALUE, TIME_OUT);
     //B.printYN();
     //B.printStatistics();
     //B.writeStatistics();

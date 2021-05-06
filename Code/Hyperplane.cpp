@@ -11,7 +11,7 @@
  * \param nv std::vector of double. It defines the normal vector of the hyperplane.
  * \param pt std::vector of double. It defines the coordinates of a point of the hyperplane.
  */
-Hyperplane::Hyperplane(std::vector<double> const& nv, std::vector<double> const& pt) : normalVector(nv), nbDefiningPts(0), defPts(0), dim(nv.size() - 1), copy(NULL), redundant(false) {
+Hyperplane::Hyperplane(std::vector<double> const& nv, std::vector<double> const& pt) : normalVector(nv), nbDefiningPts(0), defPts(0), dim(nv.size() - 1), copy(NULL), redundant(false), isNew(true) {
 
 	// compute the right-hand side given the normal vector and a point
 	rhs = 0;
@@ -25,7 +25,7 @@ Hyperplane::Hyperplane(std::vector<double> const& nv, std::vector<double> const&
  * \param nv std::vector of double. It defines the normal vector of the hyperplane.
  * \param rhs double. It defines the right-hand side of the hyperplane's equation.
  */
-Hyperplane::Hyperplane(std::vector<double> const& nv, double const& rhs) : normalVector(nv), nbDefiningPts(0), defPts(0), dim(nv.size() - 1), rhs(rhs), copy(NULL), redundant(false) {
+Hyperplane::Hyperplane(std::vector<double> const& nv, double const& rhs) : normalVector(nv), nbDefiningPts(0), defPts(0), dim(nv.size() - 1), rhs(rhs), copy(NULL), redundant(false), isNew(true) {
 
 }
 
@@ -237,6 +237,17 @@ void Hyperplane::notifyDeletion() {
     for (vertex = defPts.begin(); vertex != defPts.end(); vertex++) {
         (*vertex)->discardHyperplane(this);
     }
+}
+
+bool Hyperplane::is_new() {
+    return isNew;
+}
+
+void Hyperplane::becomes_new() {
+    isNew = true;
+}
+void Hyperplane::becomes_old() {
+    isNew = false;
 }
 
 /* ==========================================================

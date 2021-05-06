@@ -134,6 +134,7 @@ private:
 	bool warmstarted; //!< true if the linear relaxation is warmstarted, false otherwise.
 	bool firstGeneration; //!< true if this linear relaxation object is solved for the first time. False if it has been solved at least once (i.e. compute has been called at least once).
 	bool checkPointDestroyed; //!< true if the check point has been destroyed, which means that a new one should be extracted
+	bool attemptedDeleteNewHpp;
 
 	// Representations
 	std::list <Hyperplane*> facets; //!< list of hyperplanes, that defines the facet of the linear relaxation.
@@ -342,13 +343,32 @@ public:
 
 	/*! \brief Computes the median value of variable $x_i$ among the extreme points of the linear relaxation.
 	 *
+	 * This functions returns the median value of the variable $x_i$ among the extreme points of the LP relax.
+	 * \param slub SLUB. The slub that defines the part of the objective space to search in.
+	 * \param i int. Index of the splitting variable.
+	 * \return the index of the most often fractional variable, as an int.
+	 */
+	int computeMedianSplittingValue(SLUB& slub, int i);
+
+	/*! \brief Computes the median value of variable $x_i$ among the extreme points of the linear relaxation.
+	 *
 	 * This functions returns the median value of the variable $x_i$ among the extreme points of the LP relax. The integer values
 	 * are ignored in the first place. If there is no decimal values, the integer ones are then considered.
 	 * \param slub SLUB. The slub that defines the part of the objective space to search in.
 	 * \param i int. Index of the splitting variable.
 	 * \return the index of the most often fractional variable, as an int.
 	 */
-	int computeMedianSplittingValue(SLUB& slub, int i);
+	int computeMedianSplittingValue2(SLUB& slub, int i);
+
+	/*! \brief Computes most often fractional value of variable $x_i$ among the extreme points of the linear relaxation.
+	 *
+	 * This functions returns the most often fractional value of the variable $x_i$ among the extreme points of the LP relax. If there is no fractional
+	 * value, the median splitting rule is called.
+	 * \param slub SLUB. The slub that defines the part of the objective space to search in.
+	 * \param i int. Index of the splitting variable.
+	 * \return the index of the most often fractional variable, as an int.
+	 */
+	int computeMostOftenFractionalSplittingValue(SLUB& slub, int i);
 
 	/*! \brief Check whether a point y is weakly dominated by an existing extreme point
 	 *
@@ -468,6 +488,15 @@ public:
 	 */
 	void clearStatus(std::list<Point*>& N, std::list<Point*>& M, std::list<Point*>& R);
 
+	/*! \brief Clear the status of all the concerned points before the next iteration.
+	 *
+	 * Note: D (degenerate points) is included in M (modified points).
+	 * \param N, list of Point*. The list of the polyhedron's new vertices.
+	 * \param M, list of Point*. The list of the polyhedron's degenerate vertices.
+	 * \param R, list of Point*. The list of the polyhedron's new extreme rays
+	 */
+	void correctRedundancy(std::list<Point*>& N, std::list<Point*>& D);
+
 	/*! \brief Generate an extreme ray in direction k at point w and filter redundant rays in R.
 	 *
 	 * \param w Point*. A pointer to the point attached to the ray computed.
@@ -475,6 +504,8 @@ public:
 	 * \param R, list of Point*. The list of the polyhedron's new rays.
 	 */
 	void generateRay(Point* w, int k, std::list<Point*>& R);
+
+	void clear();
 
 	void exportIteration();
 

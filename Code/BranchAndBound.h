@@ -48,7 +48,7 @@ public:
 	 * \param varSel int. The identifier of the variable selection strategy.
 	 * \param ob int. The identifier of the objective branching strategy.
 	 */
-	void run(int lb, int nodeSel, int varSel, int ob);
+	void run(int lb, int nodeSel, int varSel, int ob, int valBranch, int timeout);
 
 	/*! \brief Select the next node to be explored in the tree
 	 *

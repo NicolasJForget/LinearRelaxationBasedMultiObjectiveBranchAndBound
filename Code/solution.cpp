@@ -78,6 +78,13 @@ void Solution::print() {
             std::cout << objectiveVector[i] << " , ";
         }
         std::cout << objectiveVector[objectiveVector.size() - 1] << " )\n";
+
+        // pre-img
+        std::cout << "\n   -> ( ";
+        for (int i = 0; i < variableVector.size() - 1; i++) {
+            std::cout << variableVector[i] << " , ";
+        }
+        std::cout << variableVector[variableVector.size() - 1] << " )\n";
     }
     else {
         std::cout << " xxx \n";

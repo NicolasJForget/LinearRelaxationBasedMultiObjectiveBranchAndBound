@@ -38,6 +38,7 @@ private:
 	bool visited; //!< true if the point has been visited at a given iteration of benson's algorithm
 	bool modified; //!< true if the point has been modified or used for computing a new point at a given of benson's algorithm
 	std::list<Point*> C; //!< list of points related to the modifications (linked to modified)
+	int domiSlub; //!< true if it is dominated by the current slub. -1 if unknown, 0 if non-dominated, 1 if dominated
 	//int directionRay; //!< unbounded direction if the point is a ray
 
 public:
@@ -578,6 +579,15 @@ public:
 	 * \param Point* y. The point used for comparison with this.
 	 * \return true if the two points are significantly close.
 	 */
+	bool isVeryCloseTo(Point* y);
+
+	/*! \brief Check whether the point is significantly close to y.
+	 *
+	 * The two points are considered significantly close if their euclidian distance is smaller than a threashold thsld.
+	 * This function computes the euclidian distance and compare it to the threashold value.
+	 * \param Point* y. The point used for comparison with this.
+	 * \return true if the two points are significantly close.
+	 */
 	bool isVeryCloseTo(Point* y, int callDebug);
 
 	/*! \brief Check whether the point is significantly close to y.
@@ -596,6 +606,14 @@ public:
 	 * \param Point* y. The point used for comparison with this.
 	 */
 	void merge(Point* y);
+
+	/*! \brief Merge the point with y.
+	 *
+	 * The functions replaces the coordinates of the current point by the coordinates of the point located at the middle
+	 * of the edge defined by this point and y. It also merges the list of active hyperplanes and adjacent points.
+	 * \param Point* y. The point used for comparison with this.
+	 */
+	void merge2(Point* y);
 
 	/*! \brief Discard the hyperplane H from the list of active hyperplanes.
 	 *
@@ -625,6 +643,12 @@ public:
 	 * \param k, int. The unbounded direction of the ray.
 	 */
 	void receive_ray(int k);
+
+	/*! \brief Notify the point that it is not longer connected to its extreme ray unbounded in direction k.
+	 *
+	 * \param k, int. The unbounded direction of the ray.
+	 */
+	void loose_ray(int k);
 
 	/*! \brief Notify the adjacent points and active hyperplane that this point will be destroyed.
 	 */
@@ -699,7 +723,7 @@ public:
 	 * \param N list of Point*. The list of the polyhedron's new vertices.
 	 * \param D list of Point*. The list of the polyhedron's degenerate vertices.
 	 */
-	void checkAdjacency(Point* y, std::list<Point*>& N, std::list<Point*>& D);
+	void checkAdjacency(Point* y, std::list<Point*>& N, std::list<Point*>& D, int iteration);
 
 	/*! \brief Returns true if this point is included in the face defined by the hyperplanes included in F.
 	 *
@@ -729,4 +753,16 @@ public:
 	 * \return the dimension, as an int.
 	 */
 	int getUnboundedDim();
+
+	/* \brief Checks whether the point dominate the current
+	 *
+	 * -1 : unknown -> should be checked
+	 * 0 : non-dominater -> should be skipped
+	 * 1 : dominater -> should be considered
+	 * \return status of the dominance
+	 */
+	int isDominater();
+	void becomesDominater();
+	void becomesNonDominater();
+	void becomesUnknownDominater();
 };

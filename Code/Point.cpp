@@ -10,14 +10,14 @@
 
   * \param z std::vector of double. It defines the objective vector of the new point.
   */
-Point::Point(std::vector<double> const& z) : objVector(z), preImage(0), adjList(0), activeHyperplanes(0), discarded(false), onBoundingBox(false), feasible(false), degenerate(true), integer(false), copy(NULL), integratedInUB(false), newPoint(true), checkpoint(false), isCplexChecked(false), isRay(false), unboundedDimension(-1), hasRay(z.size(), false), visited(false), modified(false), C(0) {};
+Point::Point(std::vector<double> const& z) : objVector(z), preImage(0), adjList(0), activeHyperplanes(0), discarded(false), onBoundingBox(false), feasible(false), degenerate(true), integer(false), copy(NULL), integratedInUB(false), newPoint(true), checkpoint(false), isCplexChecked(false), isRay(false), unboundedDimension(-1), hasRay(z.size(), false), visited(false), modified(false), C(0), domiSlub(-1) {};
 
 /*! \brief Constructor with a known objective vector.
  *
  * \param z std::vector of double. It defines the objective vector of the new point.
  * \param ray bool. True if the point is an extreme ray, false otherwise.
  */
-Point::Point(std::vector<double> const& z, int k) : objVector(z), preImage(0), adjList(0), activeHyperplanes(0), discarded(false), onBoundingBox(false), feasible(false), degenerate(true), integer(false), copy(NULL), integratedInUB(false), newPoint(true), checkpoint(false), isCplexChecked(false), isRay(true), unboundedDimension(k), hasRay(z.size(), false), visited(false), modified(false), C(0) {};
+Point::Point(std::vector<double> const& z, int k) : objVector(z), preImage(0), adjList(0), activeHyperplanes(0), discarded(false), onBoundingBox(false), feasible(false), degenerate(true), integer(false), copy(NULL), integratedInUB(false), newPoint(true), checkpoint(false), isCplexChecked(false), isRay(true), unboundedDimension(k), hasRay(z.size(), false), visited(false), modified(false), C(0), domiSlub(-1) {};
 
 /*! \brief Construct the point located at the intersection of the edge defined by u and v and hyperplane H.
  *
@@ -28,7 +28,7 @@ Point::Point(std::vector<double> const& z, int k) : objVector(z), preImage(0), a
  * \param lambda double. Defines the location of the intesection on the edge.
  * \param H Hyperplane*. A pointer to the hyperplane used to compute the intersection.
  */
-Point::Point(Point* u, Point* v, double lambda, Hyperplane* H) : objVector(u->get_nbObj()), preImage(0), adjList(0), activeHyperplanes(0), discarded(false), onBoundingBox(false), feasible(false), degenerate(true), integer(false), copy(NULL), integratedInUB(false), newPoint(true), checkpoint(false), isCplexChecked(false), isRay(false), unboundedDimension(-1), hasRay(v->get_nbObj(), false), visited(false), modified(false), C(0) {
+Point::Point(Point* u, Point* v, double lambda, Hyperplane* H) : objVector(u->get_nbObj()), preImage(0), adjList(0), activeHyperplanes(0), discarded(false), onBoundingBox(false), feasible(false), degenerate(true), integer(false), copy(NULL), integratedInUB(false), newPoint(true), checkpoint(false), isCplexChecked(false), isRay(false), unboundedDimension(-1), hasRay(v->get_nbObj(), false), visited(false), modified(false), C(0), domiSlub(-1) {
 
     // compute the coordinates
 
@@ -1303,6 +1303,25 @@ bool Point::isVeryCloseTo(Point* y, int callDebug) {
  * \param Point* y. The point used for comparison with this.
  * \return true if the two points are significantly close.
  */
+bool Point::isVeryCloseTo(Point* y) {
+
+    int dim = objVector.size();
+    double dist = 0;
+    bool closeOnEachDimension = true;
+
+    for (int k = 0; k < dim; k++) {
+        dist += pow(objVector[k] - y->get_objVector(k), 2);
+    }
+    dist = sqrt(dist);
+
+    return  dist <= EPS_PROXIMITY * 100;
+}
+
+/*! \brief Check whether the point is significantly close to y.
+ *
+ * \param Point* y. The point used for comparison with this.
+ * \return true if the two points are significantly close.
+ */
 bool Point::isVeryCloseTo(std::vector<double> y) {
 
     int dim = objVector.size();
@@ -1405,6 +1424,67 @@ void Point::merge(Point* y) {
     }
 }
 
+
+
+/*! \brief Merge the point with y.
+ *
+ * \param Point* y. The point used for comparison with this.
+ */
+void Point::merge2(Point* y) {
+
+    // merge the adjacent points
+    std::list<Point*>* adjListY = y->get_adjList();
+    std::list<Point*>::iterator adjY;
+    std::list<Point*>::iterator adjThis;
+    bool isAlreadyAdjacent;
+
+    /*std::cout << "\n";
+    for (adjThis = adjList.begin(); adjThis != adjList.end(); adjThis++) {
+        std::cout << "   -> " << *adjThis << " : ";
+        (*adjThis)->print();
+        std::cout << "\n";
+    }*/
+
+    for (adjY = adjListY->begin(); adjY != adjListY->end(); adjY++) { // for each vertex adjY adjacent to y
+        if (*adjY != this) { // that case happens when the degenerate point this is considered as feasible.
+            isAlreadyAdjacent = false;
+            adjThis = adjList.begin();
+            while (!isAlreadyAdjacent && adjThis != adjList.end()) { // search for adjY in the adjacency list of this point
+                if (*adjY == *adjThis) { // if it's already there, then we don't add the
+                    isAlreadyAdjacent = true;
+                }
+                adjThis++;
+            }
+            if (!isAlreadyAdjacent) {
+                //adjList.push_back(*adjY);
+                connect(*adjY);
+            }
+        }
+    }
+
+    // merge the active hyperplanes
+
+    std::list<Hyperplane*>* activeHppY = y->get_activeHyperplanes();
+    std::list<Hyperplane*>::iterator hppY;
+    std::list<Hyperplane*>::iterator hppThis;
+    bool isAlreadyActive;
+
+    for (hppY = activeHppY->begin(); hppY != activeHppY->end(); hppY++) {
+        isAlreadyActive = false;
+        hppThis = activeHyperplanes.begin();
+        while (!isAlreadyActive && hppThis != activeHyperplanes.end()) {
+            if (*hppY == *hppThis) { // search for potential hyperplane not included in this point's list
+                isAlreadyActive = true;
+            }
+            hppThis++;
+        }
+        if (!isAlreadyActive) { // if this hyperplane is not already in the list, add it
+            activeHyperplanes.push_back(*hppY);
+            (*hppY)->addVertex(this); // added after -> is this true ?
+        }
+    }
+}
+
 /*! \brief Purge a degenerate vertex by deleting itself from the list of adjacent vertex, if that happened to be the case
  *
  * \param id Hyperplane*. A pointer to the new active hyperplane.
@@ -1467,6 +1547,12 @@ void Point::receive_ray(int k) {
     hasRay[k] = true;
 }
 
+/*! \brief Notify the point that it is no longer connected on of its extreme ray.
+ */
+void Point::loose_ray(int k) {
+    hasRay[k] = false;
+}
+
 /*! \brief Notify the adjacent points and active hyperplane that this point will be destroyed.
  */
 void Point::notifyDeletion() {
@@ -1480,28 +1566,11 @@ void Point::notifyDeletion() {
     if (adjList.size() >= 1) {
         vertex2 = adjList.begin();
         while (vertex2 != adjList.end()) {
-            //ondebugdesrass = false;
             vertex = vertex2;
             vertex2++;
-            //lalist = (*vertex)->get_adjList();
-            //for (vtx = lalist->begin(); vtx != lalist->end(); vtx++) {
-            //    if (this == *vtx) ondebugdesrass = true;
-            //}
-            //if (!ondebugdesrass) {
-            //    std::cout << "ah ok gros fdp\n";
-            //}
-            //else {
-            //    std::cout << "nn pa toa\n";
-            //}
-            //if (*vertex != NULL && (*vertex)->get_nbObj() != 0) {
-                (*vertex)->removeAdjacentPoint(this);
-                //removeAdjacentPoint(*vertex);
-                //vertex++;
-            //}
-            //else {
-                //adjList.erase(vertex);
-                //std::cout << " bruh again \n";
-            //}
+            if (isRay)
+                (*vertex)->loose_ray(unboundedDimension);
+            (*vertex)->removeAdjacentPoint(this);
         }
     }
     
@@ -1803,7 +1872,7 @@ void Point::notifyRays(Hyperplane* H, std::list<Point*>& M) {
  * \param N list of Point*. The list of the polyhedron's new vertices.
  * \param D list of Point*. The list of the polyhedron's degenerate vertices.
  */
-void Point::checkAdjacency(Point* y, std::list<Point*>& N, std::list<Point*>& D) {
+void Point::checkAdjacency(Point* y, std::list<Point*>& N, std::list<Point*>& D, int iteration) {
 
     std::list<Hyperplane*> F(0); // description of the face of minimal dimension that contains both this and y
     std::list<Hyperplane*>* hppY = y->get_activeHyperplanes();
@@ -1839,14 +1908,25 @@ void Point::checkAdjacency(Point* y, std::list<Point*>& N, std::list<Point*>& D)
 
         v = N.begin();
         while (flag == false && v != N.end()) {
-            if (*v != this && *v != y && (*v)->isIncludedInFace(F))
+            if (*v != this && *v != y && (*v)->isIncludedInFace(F)) { //  && !(*v)->isVeryCloseTo(this) && !(*v)->isVeryCloseTo(y)
+                /*if (iteration == 4143 && abs(get_objVector(0) + 203.7) <= 0.1) {
+                    std::cout << " adjacency cancelled by ";
+                    (*v)->print();
+                    std::cout << "\n";
+                }*/
                 flag = true;
+            }
             v++;
         }
 
         v = D.begin();
         while (flag == false && v != D.end()) {
-            if (*v != this && *v != y && (*v)->isIncludedInFace(F)) {
+            if (*v != this && *v != y && (*v)->isIncludedInFace(F)) { //  && !(*v)->isVeryCloseTo(this) && !(*v)->isVeryCloseTo(y)
+                /*if (iteration == 4143 && abs(get_objVector(0) + 203.7) <= 0.1) {
+                    std::cout << " adjacency cancelled by ";
+                    (*v)->print();
+                    std::cout << "\n";
+                }*/
                 flag = true;
                 if (!(*v)->isDegenerate())
                     std::cout << "bruh\n";
@@ -1854,9 +1934,18 @@ void Point::checkAdjacency(Point* y, std::list<Point*>& N, std::list<Point*>& D)
             v++;
         }
 
-        if (flag == false)
+        if (flag == false) {
+            /*if (iteration == 4143 && abs(get_objVector(0) + 203.7) <= 0.1) {
+                std::cout << " ARE ADJACENT !!\n";
+            }*/
             connect(y);
+        }
     }
+    /*else {
+        if (iteration == 4143 && abs(get_objVector(0) + 203.7) <= 0.1) {
+            std::cout << " is not adj due to intersection < p\n";
+        }
+    }*/
 }
 
 /*! \brief Returns true if this point is included in the face defined by the hyperplanes included in F.
@@ -1888,6 +1977,28 @@ bool Point::isIncludedInFace(std::list<Hyperplane*>& F) {
 void Point::clearModifications() {
     C.clear();
     modified = false;
+}
+
+/* \brief Checks whether the point dominate the current
+ *
+ * -1 : unknown -> should be checked
+ * 0 : non-dominater -> should be skipped
+ * 1 : dominater -> should be considered
+ * \return status of the dominance
+ */
+int Point::isDominater() {
+    return domiSlub;
+}
+
+void Point::becomesDominater() {
+    domiSlub = 1;
+}
+void Point::becomesNonDominater() {
+    domiSlub = 0;
+}
+
+void Point::becomesUnknownDominater() {
+    domiSlub = -1;
 }
 
  /* ==========================================================

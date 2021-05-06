@@ -21,6 +21,7 @@ private:
 	double rhs; //!< a constant defining the right-hand side of the hyperplane's equation
 	Hyperplane* copy; //!< used for copy purpose only. See copy constructor of LinearRelaxation for its purpose.
 	bool redundant; //!< true if the hyperplane is redundant, i.e. if it is a face but not a facet of the lower bound set.
+	bool isNew; //!< true if computed at the current iteration of the BB
 
 public:
 
@@ -184,5 +185,9 @@ public:
 	* \return lambda, int, s.t. the new point y = lambda * u + (1 - lambda) * v
 	*/
 	std::vector<double> edgeIntersection2(Point* u, Point* v);
+
+	bool is_new();
+	void becomes_new();
+	void becomes_old();
 };
 

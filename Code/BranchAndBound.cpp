@@ -10,7 +10,10 @@
   */
 BranchAndBound::BranchAndBound(std::string instance) : lp(instance), queue(0), P(), U(lp), stat() {
 
-    std::stringstream ss(instance);
+    inst = instance;
+    inst.erase(0, 20);
+
+    /*std::stringstream ss(instance);
     std::vector<std::string> result;
     while (ss.good())
     {
@@ -18,7 +21,7 @@ BranchAndBound::BranchAndBound(std::string instance) : lp(instance), queue(0), P
         getline(ss, substr, '/');
         result.push_back(substr);
     }
-    inst = result[result.size() - 1];
+    inst = result[result.size() - 1];*/
 }
 
  /* ==========================================================
@@ -32,7 +35,7 @@ BranchAndBound::BranchAndBound(std::string instance) : lp(instance), queue(0), P
    * \param varSel int. The identifier of the variable selection strategy.
    * \param ob int. The identifier of the objective branching strategy.
    */
-void BranchAndBound::run(int lb, int nodeSel, int varSel, int ob) {
+void BranchAndBound::run(int lb, int nodeSel, int varSel, int ob, int valBranch, int timeout) {
 
     try {
         reset();
@@ -50,6 +53,8 @@ void BranchAndBound::run(int lb, int nodeSel, int varSel, int ob) {
         P.nodeSelection = nodeSel;
         P.variableSelection = varSel;
         P.objectiveBranching = ob;
+        P.branchingValueSelection = valBranch;
+        P.timeOut = timeout;
         P.GCD = std::vector<int>(lp.get_p(), 1); // compute with euclidean algorithm for each objective?
         //if (lp.get_p() == 3)
         //    P.objectiveBranching = CONE_OBJECTIVE_BRANCHING;
@@ -62,18 +67,19 @@ void BranchAndBound::run(int lb, int nodeSel, int varSel, int ob) {
 
         std::string go;
         // explore the tree
-        while (queue.size() != 0 && timeLimit.CumulativeTime("sec") < TIME_OUT) { // && iteration < 64    4
+        while (queue.size() != 0 && timeLimit.CumulativeTime("sec") < P.timeOut) { // && iteration < 64    4 // TIME_OUT
             timeLimit.StartTimer();
             stat.timeNodeSel.StartTimer();
             currentNode = selectNode();
             stat.timeNodeSel.StopTimer();
             stat.nbNodes++;
 
-            if (iteration % 100 == 0) { // 8771 // int(DEBUG_IT)
+            if (iteration % 1000 == 0) { // 8771 // int(DEBUG_IT)
                 /*std::cout << "\n\n Start next iteration...";
                 std::cin >> go;*/
                 //currentNode->print();
                 std::cout << "\niteration: " << iteration << "\n";
+                //currentNode->showLB();
                 //currentNode->showStatus();
                 //if (iteration == 94) throw std::string("Debug\n");
             }
@@ -81,17 +87,17 @@ void BranchAndBound::run(int lb, int nodeSel, int varSel, int ob) {
             //currentNode->showLB();
             /*if (currentNode->isOurCulprit()) {
                 currentNode->print();
+                currentNode->showLB();
                 std::cout << "\niteration: " << iteration << "\n";
                 std::cout << " we found him\n";
             }*/
             
-            /*if (iteration == 1436) {
+            /*if (iteration == 4151) {
                 currentNode->print();
                 currentNode->showLB();
                 currentNode->showStatus();
                 std::cout << "stop";
             }*/
-
             if (!currentNode->isFathomed()) {
                 //split
                 currentNode->splitOS(&queue, &U, iteration);
@@ -179,7 +185,8 @@ void BranchAndBound::reset() {
 void BranchAndBound::writeStatistics() {
 
     std::ofstream file;
-    file.open("C:/Users/au643334/source/repos/LinearRelaxationBasedMultiObjectiveBranchAndBound/Code/instances/expeData/results.txt", std::ios_base::app); // append instead of overwrite
+    //file.open("C:/Users/au643334/source/repos/LinearRelaxationBasedMultiObjectiveBranchAndBound/Code/instances/expeData/results.txt", std::ios_base::app); // append instead of overwrite
+    file.open("C:/Users/au643334/Desktop/expeProject2/results.txt", std::ios_base::app); // append instead of overwrite
     
     // instance and parameters
     file << inst << ","; // instance
@@ -194,6 +201,9 @@ void BranchAndBound::writeStatistics() {
     if (P.objectiveBranching == NO_OBJECTIVE_BRANCHING) file << "noOB,"; // OB
     else if (P.objectiveBranching == FULL_OBJECTIVE_BRANCHING) file << "fullOB,";
     else if (P.objectiveBranching == CONE_OBJECTIVE_BRANCHING) file << "coneOB,";
+    else file << ",";
+    if (P.branchingValueSelection == MEDIAN) file << "med,";
+    else if (P.branchingValueSelection == MOST_OFTEN_FRACTIONAL_VALUE) file << "mofv,";
     else file << ",";
 
     // performance and YN

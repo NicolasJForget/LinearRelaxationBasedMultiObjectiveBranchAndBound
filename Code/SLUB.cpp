@@ -80,12 +80,20 @@ void SLUB::merge(LocalUpperBound& lub) {
 bool SLUB::dominated(Point* pts) {
 
     bool dominated = true;
-    int k = 0;
-    while (dominated && k < dim) {
-        if (pts->get_objVector(k) > coord[k]) {
-            dominated = false;
+    if (pts->isDominater() == 1) {
+        dominated = true;
+    }
+    else if (pts->isDominater() == 0) {
+        dominated = false;
+    }
+    else {
+        int k = 0;
+        while (dominated && k < dim) {
+            if (pts->get_objVector(k) > coord[k]) {
+                dominated = false;
+            }
+            k++;
         }
-        k++;
     }
 
     return dominated;

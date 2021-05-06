@@ -132,7 +132,7 @@ LinearRelaxation::~LinearRelaxation() {
 		delete boundingBox[k];
 }
 
-LinearRelaxation::LinearRelaxation(MathematicalModel* lp, WeightedSumModel* ws, FeasibilityCheckModel* feas, DualBensonModel* db, FurthestFeasiblePointModel* bvp, BranchingDecisions* branch, Statistics* S) : LowerBoundSet(lp,branch), weightedSum(ws), feasibilityCheck(feas), dualBenson(db), furthestFeasiblePoint(bvp), antiIdealPoint(lp->get_p()), interiorPoint(lp->get_p()), boundingBox(0), warmstarted(false), facets(0), extrPoints(0), extrRays(0), nbIterations(0), call(0), firstGeneration(true), S(S), checkPointDestroyed(false) { //stat()
+LinearRelaxation::LinearRelaxation(MathematicalModel* lp, WeightedSumModel* ws, FeasibilityCheckModel* feas, DualBensonModel* db, FurthestFeasiblePointModel* bvp, BranchingDecisions* branch, Statistics* S) : LowerBoundSet(lp,branch), weightedSum(ws), feasibilityCheck(feas), dualBenson(db), furthestFeasiblePoint(bvp), antiIdealPoint(lp->get_p()), interiorPoint(lp->get_p()), boundingBox(0), warmstarted(false), facets(0), extrPoints(0), extrRays(0), nbIterations(0), call(0), firstGeneration(true), S(S), checkPointDestroyed(false), attemptedDeleteNewHpp(false) { //stat()
     //initialize(*lp);
 	for (int k = 0; k < lp->get_p(); k++) {
 		for (int i = 0; i < lp->get_n(); i++) {
@@ -154,7 +154,7 @@ LinearRelaxation::LinearRelaxation(MathematicalModel* lp, WeightedSumModel* ws, 
  *
  * \param lp MathematicalModel*. A pointer to the problem this lower bound set refers to.
  */
-LinearRelaxation::LinearRelaxation(MathematicalModel* lp, BranchingDecisions* branch, Statistics* S) : LowerBoundSet(lp,branch), antiIdealPoint(lp->get_p()), interiorPoint(lp->get_p()), boundingBox(0), warmstarted(false), facets(0), extrPoints(0), extrRays(0), nbIterations(0), call(0), firstGeneration(true), S(S), checkPointDestroyed(false) { // stat()
+LinearRelaxation::LinearRelaxation(MathematicalModel* lp, BranchingDecisions* branch, Statistics* S) : LowerBoundSet(lp,branch), antiIdealPoint(lp->get_p()), interiorPoint(lp->get_p()), boundingBox(0), warmstarted(false), facets(0), extrPoints(0), extrRays(0), nbIterations(0), call(0), firstGeneration(true), S(S), checkPointDestroyed(false), attemptedDeleteNewHpp(false) { // stat()
 
 	weightedSum = new WeightedSumModel();
 	weightedSum->build(*lp);
@@ -187,7 +187,7 @@ LinearRelaxation::LinearRelaxation(MathematicalModel* lp, BranchingDecisions* br
  *
  * \param LPrelax LinearRelaxation. The LinearRelaxation this object is a copy of.
  */
-LinearRelaxation::LinearRelaxation(LinearRelaxation* LPrelax, BranchingDecisions* branch) : LowerBoundSet(LPrelax->lp,branch), weightedSum(LPrelax->weightedSum), feasibilityCheck(LPrelax->feasibilityCheck), dualBenson(LPrelax->dualBenson), furthestFeasiblePoint(LPrelax->furthestFeasiblePoint), antiIdealPoint(LPrelax->antiIdealPoint), interiorPoint(LPrelax->interiorPoint), warmstarted(true), nbIterations(0), call(LPrelax->call), firstGeneration(LPrelax->firstGeneration), S(LPrelax->S) { // CHANGE WARMSTARTED TO TRUE LATER stat()
+LinearRelaxation::LinearRelaxation(LinearRelaxation* LPrelax, BranchingDecisions* branch) : LowerBoundSet(LPrelax->lp,branch), weightedSum(LPrelax->weightedSum), feasibilityCheck(LPrelax->feasibilityCheck), dualBenson(LPrelax->dualBenson), furthestFeasiblePoint(LPrelax->furthestFeasiblePoint), antiIdealPoint(LPrelax->antiIdealPoint), interiorPoint(LPrelax->interiorPoint), warmstarted(true), nbIterations(0), call(LPrelax->call), firstGeneration(LPrelax->firstGeneration), S(LPrelax->S), attemptedDeleteNewHpp(LPrelax->attemptedDeleteNewHpp) { // CHANGE WARMSTARTED TO TRUE LATER stat()
 
 	// Bouding box
 	Hyperplane* H;
@@ -211,6 +211,7 @@ LinearRelaxation::LinearRelaxation(LinearRelaxation* LPrelax, BranchingDecisions
 	for (f = LPrelax->facets.begin(); f != LPrelax->facets.end(); f++) {
 		H = new Hyperplane(**f);
 		(*f)->setCopy(H);
+		H->becomes_old();
 		facets.push_back(H);
 	}
 
@@ -390,7 +391,11 @@ void LinearRelaxation::compute() {
 		}
 		else {
 
-			if (!warmstarted || branchDec->depth % CORRECTION_WARMSTART == 0) {
+			if (!warmstarted || attemptedDeleteNewHpp) { // || branchDec->depth % CORRECTION_WARMSTART == 0
+				if (warmstarted) {
+					std::cout << "LP relax recomputed at iteration " << iteration << "\n";
+					clear();
+				}
 				S->timeInitialization.StartTimer();
 				initialize();
 				S->timeInitialization.StopTimer();
@@ -508,7 +513,7 @@ void LinearRelaxation::compute() {
 				tps.StopTimer();
 				//std::cout << "timer : " << tps.CumulativeTime("sec") << "\n";
 
-			} while (currentPoint != extrPoints.end()); // && tps.CumulativeTime("sec") <= 1000
+			} while (currentPoint != extrPoints.end() && tps.CumulativeTime("sec") <= TIME_OUT_LB); // && tps.CumulativeTime("sec") <= 1000
 
 			filterExtremePoints();
 			status = SOLVED;
@@ -545,57 +550,52 @@ void LinearRelaxation::compute() {
  */
 void LinearRelaxation::updatePolyhedron3(Hyperplane* H, Point* ptsDiscardedByH) {
 
-	if (iteration == DEBUG_IT) {
-		print();
-		//exportProblem();
+	int laput;
+	if (iteration == DEBUG_IT) { // DEBUG_IT
+		//print();
+		exportIteration();
+		//print();
 		std::cout << "\n\n------------------- \n\n";
 		H->print();
+		//std::cout << " enter a nb to continue... ";
+		//std::cin >> laput;
 		std::cout << "   -> cuts out : ";
 		ptsDiscardedByH->print();
 		std::cout << " at " << ptsDiscardedByH << "\n\n";
 
-		if (call == 20) {
-			//facets.push_back(H);
-			//exportIteration();
-			//print();
-			/*std::cout << " \n ========== EXTR PTS ========== \n";
-			for (std::list<Point*>::iterator v = extrPoints.begin(); v != extrPoints.end(); v++) {
-				if (!(*v)->is_ray()) {
-					std::cout << " \n";
-					(*v)->print();
-						
-					std::cout << "\n Adj list : \n";
-					std::list<Point*>* a = (*v)->get_adjList();
-					for (std::list<Point*>::iterator w = a->begin(); w != a->end(); w++) {
-						std::cout << "    -> ";
-						(*w)->print();
-						std::cout << "\n";
-					}
-
-					std::cout << " Active hpp : \n";
-					std::list<Hyperplane*>* hpp = (*v)->get_activeHyperplanes();
-					for (std::list<Hyperplane*>::iterator f = hpp->begin(); f != hpp->end(); f++) {
-						std::cout << "    -> ";
-						(*f)->print();
-					}
-				}
-			}
-	
-			std::cout << " \n ========== EXTR PTS ========== \n";
-			for (std::list<Hyperplane*>::iterator f = facets.begin(); f != facets.end(); f++) {
+		// print detail
+		/*for (std::list<Point*>::iterator vtx = extrPoints.begin(); vtx != extrPoints.end(); vtx++) {
+			std::cout << "\n new vtx : ";
+			(*vtx)->print();
+			std::cout << "\n Adj list :\n";
+			std::list<Point*>* adj = (*vtx)->get_adjList();
+			for (std::list<Point*>::iterator vtx2 = adj->begin(); vtx2 != adj->end(); vtx2++) {
+				std::cout << "    -> ";
+				(*vtx2)->print();
 				std::cout << "\n";
-				(*f)->print();
-				std::list<Point*>* a = (*f)->get_defPts();
-				std::cout << " Defining pts : \n";
-				for (std::list<Point*>::iterator v = a->begin(); v != a->end(); v++) {
-					std::cout << "    -> ";
-					(*v)->print();
-					std::cout << "\n";
-				}
 			}
-			std::cout << "\n";*/
+			std::cout << " Active hpp :\n";
+			std::list<Hyperplane*>* actHpp = (*vtx)->get_activeHyperplanes();
+			for (std::list<Hyperplane*>::iterator f = actHpp->begin(); f != actHpp->end(); f++) {
+				std::cout << "    -> ";
+				(*f)->print();
+			}
+			std::cout << "\n";
 		}
-		
+
+		std::cout << "\n";
+		for (std::list<Hyperplane*>::iterator f = facets.begin(); f != facets.end(); f++) {
+			std::cout << " new facet : ";
+			(*f)->print();
+			std::list<Point*>* defpts = (*f)->get_defPts();
+			std::cout << " Adj list :\n";
+			for (std::list<Point*>::iterator y = defpts->begin(); y != defpts->end(); y++) {
+				std::cout << "   -> ";
+				(*y)->print();
+				std::cout << "\n";
+			}
+			std::cout << "\n";
+		}*/
 	}
 
 	// compute the new points
@@ -604,7 +604,7 @@ void LinearRelaxation::updatePolyhedron3(Hyperplane* H, Point* ptsDiscardedByH) 
 	std::vector<double> sol;
 	std::list<Point*> N(0), D(0), E(0), M(0), R(0); // new pts, degenerate pts, points to explore, modified feasible points, extreme rays
 	std::list<Point*>::iterator v, w, v1, v2, v3;
-	std::list<Point*>* adjacentVertex;
+	std::list<Point*>* adjacentVertex, * adjvtx1, * adjvtx2;
 	Point* u, * newPts;
 	E.push_back(ptsDiscardedByH);
 	ptsDiscardedByH->becomesDiscarded();
@@ -616,7 +616,7 @@ void LinearRelaxation::updatePolyhedron3(Hyperplane* H, Point* ptsDiscardedByH) 
 		u = E.front();
 		E.pop_front();
 
-		if (call == PRINT_DEBUG) {
+		if (iteration == DEBUG_IT) {
 			std::cout << " \n\n -------- \n";
 			u->print();
 			std::cout << " is selected\n";
@@ -630,7 +630,7 @@ void LinearRelaxation::updatePolyhedron3(Hyperplane* H, Point* ptsDiscardedByH) 
 			v = w;
 			w++;
 
-			if (call == PRINT_DEBUG) {
+			if (iteration == DEBUG_IT) { // call == PRINT_DEBUG
 				std::cout << "   -> ";
 				(*v)->print();
 			}
@@ -644,16 +644,18 @@ void LinearRelaxation::updatePolyhedron3(Hyperplane* H, Point* ptsDiscardedByH) 
 					(*v)->notifyRays(H, M);
 					(*v)->becomesVisited();
 				}
-				if (call == PRINT_DEBUG)
-					std::cout << " is degenerate\n";
+				if (iteration == DEBUG_IT) // call == PRINT_DEBUG
+					std::cout << " is degenerate";
 			}
 
 			else if ((*v)->isDiscarded(H)) {
+				if (iteration == DEBUG_IT)
+					std::cout << " is discarded ";
 				if (!(*v)->isVisited() && !(*v)->is_ray()) {
 					(*v)->becomesVisited();
 					E.push_back(*v);
-					if (call == PRINT_DEBUG) {
-						std::cout << " is added to E";
+					if (iteration == DEBUG_IT) { // call == PRINT_DEBUG
+						std::cout << " and added to E";
 					}
 				}
 			}
@@ -667,22 +669,21 @@ void LinearRelaxation::updatePolyhedron3(Hyperplane* H, Point* ptsDiscardedByH) 
 				sol = H->edgeIntersection2(u, *v);
 				newPts = new Point(u, *v, sol, H);
 				N.push_back(newPts);
-				if (iteration == DEBUG_IT && false) { //
+				if (iteration == DEBUG_IT) { // call == PRINT_DEBUG
 					std::cout << "  => ";
 					newPts->print();
 					std::cout << " is created\n           -> from infeasible : ";
 					u->print();
-					std::cout << "\n           -> to feasible : ";
+					std::cout << " " << u << "\n           -> to feasible : ";
 					(*v)->print();
-					std::cout << "\n";
+					std::cout << " " << *v << "\n";
 				}
 			}
-			if (call == PRINT_DEBUG) {
+			if (iteration == DEBUG_IT) { // call == PRINT_DEBUG
 				std::cout << "\n";
 			}
 		}
 	}
-
 
 	// generate extreme rays
 
@@ -692,9 +693,11 @@ void LinearRelaxation::updatePolyhedron3(Hyperplane* H, Point* ptsDiscardedByH) 
 			// generate rays for the new points
 			for (v = N.begin(); v != N.end(); v++) {
 				if (!(*v)->has_ray(k)) {
-					//std::cout << " ... generation on ";
-					//(*v)->print();
-					//std::cout << " in direction " << k << "\n";
+					if (iteration == DEBUG_IT) {
+						std::cout << " ... generation on ";
+						(*v)->print();
+						std::cout << " in direction " << k << "\n";
+					}
 					generateRay(*v, k, R);
 				}
 			}
@@ -702,9 +705,11 @@ void LinearRelaxation::updatePolyhedron3(Hyperplane* H, Point* ptsDiscardedByH) 
 			// generate rays for the degenerate vertices
 			for (v = D.begin(); v != D.end(); v++) {
 				if (!(*v)->has_ray(k)) {
-					//std::cout << " ... generation on ";
-					//(*v)->print();
-					//std::cout << " in direction " << k << "\n";
+					if (iteration == DEBUG_IT) {
+						std::cout << " ... generation on ";
+						(*v)->print();
+						std::cout << " in direction " << k << "\n";
+					}
 					generateRay(*v, k, R);
 				}
 			}
@@ -735,15 +740,61 @@ void LinearRelaxation::updatePolyhedron3(Hyperplane* H, Point* ptsDiscardedByH) 
 	for (v = R.begin(); v != R.end(); v++)
 		extrPoints.push_back(*v);
 
-	//print();
-	//if (call == 10)
-		//std::cout << "stop\n";
-	if (iteration == DEBUG_IT && call == 15) {
-		print();
+	if (iteration == DEBUG_IT && call == 1) {
+		//print();
 		exportIteration();
 		std::cout << "out";
 	}
 	call++; // go to next iteration
+}
+
+
+/*! \brief Clear the status of all the concerned points before the next iteration.
+ *
+ * Note: D (degenerate points) is included in M (modified points).
+ * \param N, list of Point*. The list of the polyhedron's new vertices.
+ * \param M, list of Point*. The list of the polyhedron's degenerate vertices.
+ * \param R, list of Point*. The list of the polyhedron's new extreme rays
+ */
+void LinearRelaxation::correctRedundancy(std::list<Point*>& N, std::list<Point*>& D) {
+
+	std::list<Point*>::iterator v, v1, v2, v3;
+
+	// merge with new points
+
+	v = N.begin();
+	while (v != N.end()) {
+		v2 = v;
+		v2++;
+		while (v2 != N.end()) {
+			v3 = v2;
+			v2++;
+			if ((*v)->isVeryCloseTo(*v3)) {
+				(*v)->merge2(*v3);
+				(*v3)->notifyDeletion();
+				delete* v3;
+				N.erase(v3);
+			}
+		}
+		v++;
+	}
+
+	// merge with degenerate points
+
+	for (v = D.begin(); v != D.end(); v++) {
+		v1 = N.begin();
+		while (v1 != N.end()) {
+			v2 = v1;
+			v1++;
+			if ((*v)->isVeryCloseTo(*v2)) {
+				std::cout << " bruh \n";
+				(*v)->merge2(*v2);
+				(*v2)->notifyDeletion();
+				delete* v2;
+				N.erase(v2);
+			}
+		}
+	}
 }
 
 /*! \brief Return true if the point should be checked.
@@ -779,10 +830,20 @@ void LinearRelaxation::clearRedundantFacets() {
 
 		// if the facet is redundant, notify its defining points and discard it
 		if ((*fCurrent)->isRedundant()) {
-			//(*fCurrent)->print();
-			(*fCurrent)->notifyDeletion();
-			delete* fCurrent;
-			facets.erase(fCurrent);
+
+			if (iteration == DEBUG_IT) { //
+				std::cout << " Hpp deleted : ";
+				(*fCurrent)->print();
+			}
+
+			if ((*fCurrent)->is_new()) {
+				attemptedDeleteNewHpp = true;
+			}
+			else {
+				(*fCurrent)->notifyDeletion();
+				delete* fCurrent;
+				facets.erase(fCurrent);
+			}
 		}
 	}
 }
@@ -800,6 +861,10 @@ void LinearRelaxation::clearDiscardedPoints() {
 		v1++;
 
 		if ((*v2)->isDiscarded()) {
+			if (iteration == DEBUG_IT) {
+				(*v2)->print();
+				std::cout << " is discarded\n";
+			}
 			(*v2)->notifyDeletion();
 			if ((*v2)->isCheckpoint())
 				checkPointDestroyed = true;
@@ -830,91 +895,56 @@ void LinearRelaxation::updateAjacencyLists(std::list<Point*>& N, std::list<Point
 	// testing new vertices with ...
 	for (v1 = N.begin(); v1 != N.end(); v1++) {
 
+		/*if (iteration == 4143 && abs((*v1)->get_objVector(0) + 203.7) <= 0.1) {
+			std::cout << "\n";
+			(*v1)->print();
+			std::cout << " is tested...\n";
+		}*/
 		// ... other new vertices
 		it1 = true;
 		for (v2 = v1; v2 != N.end(); v2++) {
 			if (it1)
 				it1 = false;
-			else
-				(*v1)->checkAdjacency(*v2, N, D); // D
+			else {
+				/*if (iteration == 4143 && abs((*v1)->get_objVector(0) + 203.7) <= 0.1) {
+					std::cout << "   -> with ";
+					(*v2)->print();
+					std::cout << "\n";
+				}*/
+				(*v1)->checkAdjacency(*v2, N, D, iteration); // D
+			}
 		}
 
 		// ... degenerate vertices
-		for (v2 = D.begin(); v2 != D.end(); v2++)
-			(*v1)->checkAdjacency(*v2, N, D); // D
-
-		// debug
-		//if ((*v1)->get_adjList()->size() < lp->get_p()) {
-		//	debug = true;
-		//	(*v1)->print();
-		//	std::cout << " ..bruuuh... ??\n";
-		//	std::list<Hyperplane*>* hpp = (*v1)->get_activeHyperplanes(), * hppp;
-		//	std::list<Hyperplane*>::iterator f = hpp->begin(), g;
-		//	Hyperplane* save;
-		//	bool allIn, oneIn;
-		//	f++; f++;
-		//	save = *f;
-		//	hpp->erase(f);
-		//	for (v2 = extrPoints.begin(); v2 != extrPoints.end(); v2++) {
-		//		if (*v1 != *v2) {
-		//			allIn = true;
-		//			// numerical
-		//			for (f = hpp->begin(); f != hpp->end(); f++) {
-		//				if (!(*v2)->isLocatedOn(**f)) {
-		//					allIn = false;
-		//					break;
-		//				}
-		//			}
-		//			if (allIn) {
-		//				std::cout << "\n Point that could be adjacent : ";
-		//				(*v2)->print();
-		//				std::cout << " ( " << *v2 << " ) \n";
-		//				hppp = (*v2)->get_activeHyperplanes();
-		//				for (g = hppp->begin(); g != hppp->end(); g++) {
-		//					std::cout << "     -> ";
-		//					(*g)->print();
-		//				}
-		//			}
-		//			// theoretical
-		//			bool isIn;
-		//			allIn = true;
-		//			for (f = hpp->begin(); f != hpp->end(); f++) {
-		//				hppp = (*v2)->get_activeHyperplanes();
-		//				isIn = false;
-		//				for (g = hppp->begin(); g != hppp->end(); g++) {
-		//					if (*f == *g) {
-		//						isIn = true;
-		//						break;
-		//					}
-		//				}
-		//				if (!isIn) {
-		//					allIn = false;
-		//					break;
-		//				}
-		//			}
-		//			if (allIn) {
-		//				(*v2)->print();
-		//				std::cout << " SHOULD BE ADJ\n";
-		//			}
-		//		}
-		//	}
-		//	(*v1)->addActiveHyperplane(save);
-		//	std::cout << " pass\n";
-		//}
-	}
-
-	if (debug) {
-		//std::cout << " stop\n";
+		for (v2 = D.begin(); v2 != D.end(); v2++) {
+			/*if (iteration == 4143 && abs((*v1)->get_objVector(0) + 203.7) <= 0.1) {
+				std::cout << "   -> with ";
+				(*v2)->print();
+				std::cout << "\n";
+			}*/
+			(*v1)->checkAdjacency(*v2, N, D, iteration);
+		} // D
 	}
 
 	// testing degenerate vertices with other degenerate vertices
 	for (v1 = D.begin(); v1 != D.end(); v1++) {
 		it1 = true;
+		/*if (iteration == 4143 && abs((*v1)->get_objVector(0) + 203.7) <= 0.1) {
+			std::cout << "\n";
+			(*v1)->print();
+			std::cout << " is tested...\n";
+		}*/
 		for (v2 = v1; v2 != D.end(); v2++) {
 			if (it1)
 				it1 = false;
-			else
-				(*v1)->checkAdjacency(*v2, N, D); // D
+			else {
+				/*if (iteration == 4143 && abs((*v1)->get_objVector(0) + 203.7) <= 0.1) {
+					std::cout << "   -> with ";
+					(*v2)->print();
+					std::cout << "\n";
+				}*/
+				(*v1)->checkAdjacency(*v2, N, D, iteration); // D
+			}
 		}
 	}
 }
@@ -1038,11 +1068,18 @@ void LinearRelaxation::generateRay(Point* w, int k, std::list<Point*>& R) {
 					//std::cout << " zbleh\n";
 					delete r;
 				}
-				else if ((*v)->hasSameFacets(r)) {
+				// causes segfault error, since it may be included in M
+				/*else if ((*v)->hasSameFacets(r)) {
+					if (iteration == DEBUG_IT) {
+						std::cout << "    -> ";
+						(*v)->print();
+						std::cout << " is deleted !!\n";
+					}
 					(*v)->notifyDeletion();
+					std::cout << " bruh \n";
 					delete* v;
 					R.erase(v);
-				}
+				}*/
 			}
 		}
 	}
@@ -1058,8 +1095,8 @@ void LinearRelaxation::generateRay(Point* w, int k, std::list<Point*>& R) {
 		R.push_back(r);
 	}
 	else {
-		//if (call == 5)
-			//std::cout << "   => r is deleted !1\n";
+		if (iteration == DEBUG_IT)
+			std::cout << "   => r is deleted !\n";
 	}
 	//std::cout << "\n";
 }
@@ -1082,7 +1119,7 @@ void LinearRelaxation::debug__resetAdjLists() {
 			if (it1)
 				it1 = false;
 			else
-				(*v)->checkAdjacency(*w, N, extrPoints);
+				(*v)->checkAdjacency(*w, N, extrPoints, iteration);
 		}
 	}
 }
@@ -1196,9 +1233,29 @@ bool LinearRelaxation::isFeasible() {
 	return feasibilityCheck->getStatus();
 }
 
+
+
+
+void LinearRelaxation::clear() {
+
+	for (std::list<Point*>::iterator v = extrPoints.begin(); v != extrPoints.end(); v++) {
+		delete* v;
+	}
+	extrPoints.clear();
+
+	for (std::list<Hyperplane*>::iterator f = facets.begin(); f != facets.end(); f++) {
+		delete* f;
+	}
+	facets.clear();
+
+	attemptedDeleteNewHpp = false;
+}
+
 /*! \brief Prints the lower bound set.
  */
 void LinearRelaxation::print() {
+
+	//exportProblem();
 
 	std::cout << "\n============= Lower Bound Set ==============\n\n";
 
@@ -1248,13 +1305,13 @@ void LinearRelaxation::print() {
 				(*v)->print();
 				std::cout << "\n";
 			}*/
-			if ((*it2)->get_nbVar() != 0) {
+			/*if ((*it2)->get_nbVar() != 0) {
 				std::cout << " ( ";
 				for (int k = 0; k < lp->get_n() - 1; k++) {
 					std::cout << (*it2)->get_preImage(k) << " , ";
 				}
 				std::cout << (*it2)->get_preImage(lp->get_n() - 1) << " )\n";
-			}
+			}*/
 		}
 	}
 	std::cout << "\n";
@@ -1524,17 +1581,25 @@ int LinearRelaxation::computeMostOftenFractionalIndex(SLUB& slub) {
 	for (pt = extrPoints.begin(); pt != extrPoints.end(); pt++) {
 		//(*pt)->print();
 		//std::cout << "\n";
-		if (!(*pt)->isOnBoundingBox() && slub.dominated(*pt) && (*pt)->get_nbVar() != 0) { // last condition happen if timer threshold is reached during LB computation
+		(*pt)->becomesUnknownDominater();
+		// OnBoundingBox
+		if (!(*pt)->is_ray() && (*pt)->get_nbVar() != 0) { // last condition happen if timer threshold is reached during LB computation
 			//(*pt)->printPreImage();
-			nbIncludedPoints++;
-			empty = false;
-			for (int i = 0; i < lp->get_n(); i++) {
-				val = (*pt)->get_preImage(i);
-				if (val - trunc(val + 0.00000000001) >= 0.00000000001 ) { // for numerical instabilities
-					counter[i]++;
-					allInteger = false;
+			if (slub.dominated(*pt)){
+				(*pt)->becomesDominater();
+				nbIncludedPoints++;
+				empty = false;
+				for (int i = 0; i < lp->get_n(); i++) {
+					val = (*pt)->get_preImage(i);
+					if (val - trunc(val + 0.00000000001) >= 0.00000000001) { // for numerical instabilities
+						counter[i]++;
+						allInteger = false;
+					}
+					avgValue[i] += val;
 				}
-				avgValue[i] += val;
+			}
+			else {
+				(*pt)->becomesNonDominater();
 			}
 		}
 	}
@@ -1638,7 +1703,7 @@ int LinearRelaxation::computeMostOftenFractionalIndex(SLUB& slub) {
  * \param i int. Index of the splitting variable.
  * \return the index of the most often fractional variable, as an int.
  */
-int LinearRelaxation::computeMedianSplittingValue(SLUB& slub, int i) {
+int LinearRelaxation::computeMedianSplittingValue2(SLUB& slub, int i) {
 
 	std::vector<double> valDec(0); // decimal values
 	std::vector<double> valInt(0); // integer values
@@ -1646,7 +1711,7 @@ int LinearRelaxation::computeMedianSplittingValue(SLUB& slub, int i) {
 	std::list<Point*>::iterator pt;
 	double val;
 	for (pt = extrPoints.begin(); pt != extrPoints.end(); pt++) {
-		if (!(*pt)->isOnBoundingBox() && slub.dominated(*pt) && (*pt)->get_nbVar() != 0) {
+		if (!(*pt)->is_ray() && slub.dominated(*pt) && (*pt)->get_nbVar() != 0) {
 			val = (*pt)->get_preImage(i);
 			if (val - trunc(val + 0.00000000001) >= 0.00000000001) { // for numerical instabilities -> if integer
 				valDec.push_back(val);
@@ -1675,6 +1740,97 @@ int LinearRelaxation::computeMedianSplittingValue(SLUB& slub, int i) {
 	}
 
 	return splittingValue;
+}
+
+/*! \brief Computes the median value of variable $x_i$ among the extreme points of the linear relaxation.
+ *
+ * \param slub SLUB. The slub that defines the part of the objective space to search in.
+ * \param i int. Index of the splitting variable.
+ * \return the index of the most often fractional variable, as an int.
+ */
+int LinearRelaxation::computeMedianSplittingValue(SLUB& slub, int i) {
+
+	std::vector<double> valDec(0); // decimal values
+	//std::vector<double> valInt(0); // integer values
+
+	std::list<Point*>::iterator pt;
+	double val;
+	for (pt = extrPoints.begin(); pt != extrPoints.end(); pt++) {
+		if (!(*pt)->is_ray() && slub.dominated(*pt) && (*pt)->get_nbVar() != 0) {
+			val = (*pt)->get_preImage(i);
+			valDec.push_back(val);
+		}
+	}
+
+	int splittingValue = 0;
+	if (valDec.size() == 0) { // we have no point in the cone
+		splittingValue = branchDec->lb[i];
+	}
+	else {
+		std::sort(valDec.begin(), valDec.end());
+		splittingValue = valDec[static_cast<int>(floor(valDec.size() / 2))];
+	}
+
+	if (splittingValue == branchDec->ub[i]) { // see if that does not creates an indesired behaviour, e.g. infinite loop in branching // lp->getUb(i)
+		splittingValue -= 1;
+	}
+
+	return splittingValue;
+}
+
+/*! \brief Computes most often fractional value of variable $x_i$ among the extreme points of the linear relaxation.
+ *
+ * \param slub SLUB. The slub that defines the part of the objective space to search in.
+ * \param i int. Index of the splitting variable.
+ * \return the index of the most often fractional variable, as an int.
+ */
+int LinearRelaxation::computeMostOftenFractionalSplittingValue(SLUB& slub, int i) {
+
+	int maxVal = 0;
+
+	// get max val
+
+	std::list<Point*>::iterator pt;
+	double val;
+	for (pt = extrPoints.begin(); pt != extrPoints.end(); pt++) {
+		//(*pt)->becomesUnknownDominater();
+		if (!(*pt)->is_ray() && (*pt)->get_nbVar() != 0) {
+			if (slub.dominated(*pt)) {
+				//(*pt)->becomesDominater();
+				val = (*pt)->get_preImage(i);
+				if (val >= maxVal)
+					maxVal = val;
+			}
+			else {
+				//(*pt)->becomesNonDominater();
+			}
+		}
+	}
+
+	// get frational val
+
+	std::vector<int> nbFracVal(floor(maxVal) + 1, 0);
+	for (pt = extrPoints.begin(); pt != extrPoints.end(); pt++) {
+		if (!(*pt)->isOnBoundingBox() && slub.dominated(*pt) && (*pt)->get_nbVar() != 0) {
+			val = (*pt)->get_preImage(i);
+			if (val - trunc(val + 0.0000000001) >= 0.0000000001) // if not integer
+				nbFracVal[floor(val)]++; // each cell correspond to one integer value, and we look at the floor of values of extr pts to get what is the int value
+		}
+	}
+
+	// search for the actual value
+
+	int vl = 0;
+	if (nbFracVal.size() == 0) {
+		vl = branchDec->lb[i];
+	}
+	else {
+		vl = std::distance(nbFracVal.begin(), std::max_element(nbFracVal.begin(), nbFracVal.end())); // we get the most occuring value
+		if (nbFracVal[vl] == 0) // no decimal value => call median rule
+			vl = computeMedianSplittingValue(slub, i);
+	}
+
+	return vl;
 }
 
 void LinearRelaxation::exportIteration() {
