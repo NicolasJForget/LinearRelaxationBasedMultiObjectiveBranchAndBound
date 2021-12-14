@@ -143,6 +143,13 @@ public:
 	* \return a pointer to the list of defining Solutions.
 	*/
 	bool above(Hyperplane* H, Parameters* P);
+	bool above(Hyperplane* H);
+
+	/*! \brief Compute the weigthed sum of the components in the objective space.
+	 *
+	 * \param vector of double l. The weight vector.
+	 */
+	double getWeightedSum(std::vector<double> l);
 
 	bool isRedundant(std::list<LocalUpperBound>& NU);
 };

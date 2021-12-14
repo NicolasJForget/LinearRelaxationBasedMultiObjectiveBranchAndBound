@@ -7,19 +7,24 @@
 * 2) a cplex model, stored using ilocplex's interface. One subclass is created for each new model.
 */
 
+#include <stdlib.h>
+#include <algorithm>
 #include <vector>
 #include <string>
 #include <fstream>
 #include <sstream>
 #include <ilcplex\ilocplex.h>
 #include "GlobalConstants.h"
+#include "solution.h"
+
+class Solution;
 
 class Model {
 protected:
 	int p; //!< the number of objectives
 	int n; //!< the number of variables
 	int m; //!< the number of constraints
-	std::vector<int> optDirection; //!< the optimization direction for each objective: 1 for maximization, 0 for minimization.
+	std::vector<int> optDirection; //!< the optimization direction for each objective: 1 for maximization, -1 for minimization.
 
 public:
 
@@ -69,11 +74,14 @@ class MathematicalModel : public Model {
 private:
 	std::vector<std::vector<int>> C; //!< Matrix of objective coefficients, as a vector of vector
 	std::vector<std::vector<int>> A; //!< Matrix of constraint coefficients, as a vector of vector
+	std::vector<int> rangeC; //!< range of the coefficient (max - min)
 	std::vector<int> constrSign; //!< Vector for the constraint signs.
 	std::vector<int> b; //!< Vector for the right-hand side of the constraints.
 	std::vector<int> ub; //!< Vector for the upper bounds on the variables
 	std::vector<int> lb; //!< Vector for the lower bounds on the variables
 	bool binaryPb; //!< true if the problem is binary
+	std::vector<int> ubObj; //!< an upper bound for each of the objectives. Sum of positive coefficients * ub variables.
+	std::vector<std::vector<int>> I; //!< Matrix of indices of the objective coefficients sorted from largest to smallest cost, for each objective independently.
 
 public:
 	
@@ -106,6 +114,12 @@ public:
 	 */
 	void fill2(std::string file);
 
+	/*! \brief Compute the matrix I.
+	 *
+	 * Sort the coefficient from largest to smallest for each objective independently and store the sorted indices in the I matrix.
+	 */
+	void computeSortedCoefficients();
+
 	/*! \brief Print the objective matrix.
 	 *
 	 * This function prints the coefficients of the objective matrix in a user-friendly manner in the command line.
@@ -117,6 +131,19 @@ public:
 	 * This function prints the coefficients of the constraint matrix in a user-friendly manner in the command line.
 	 */
 	void printConstraints();
+
+	/*! \brief Print line j of the constraint matrix.
+	 *
+	 * This function prints the coefficients of constraint j in a user-friendly manner in the command line.
+	 * \param int j. The index of the constraint to print.
+	 */
+	void printConstraints(int j);
+
+	/*! \brief Print the constraint matrix.
+	 *
+	 * This function prints the coefficients of the constraint matrix in a user-friendly manner in the command line.
+	 */
+	void printObjective(BranchingDecisions& bd);
 
 	/*! \brief Set all objective into minimization form.
 	 *
@@ -133,6 +160,14 @@ public:
 	 * \return the value of the coefficient, as an int.
 	 */
 	int get_objective(int i, int j);
+
+	/*! \brief Returns the value of ith largest coefficient of objective k.
+	 *
+	 * \param k integer. The index of the objective.
+	 * \param j integer. The ith largest coefficient.
+	 * \return the index, as an int.
+	 */
+	int get_sortedIndex(int k, int j);
 
 	/*! \brief Returns the value of the coefficient of variable $x_j$ in constraint $i$.
 	 *
@@ -178,17 +213,32 @@ public:
 
 	/*! \brief Returns the value of the lower bound of variable $i$.
 	 *
-	 * \param i integer. The index of the constraint.
+	 * \param i integer. The index of the variable.
 	 * \return the value, as an int.
 	 */
 	int getLb(int i);
 
 	/*! \brief Returns the value of the upper bound of variable $i$.
 	 *
-	 * \param i integer. The index of the constraint.
+	 * \param i integer. The index of the variable.
 	 * \return the value, as an int.
 	 */
 	int getUb(int i);
+
+	/*! \brief Returns the value of the upper bound of objective $k$.
+	 *
+	 * \param k integer. The index of the objective.
+	 * \return the value, as an int.
+	 */
+	int getUbObj(int k);
+
+	/*! \brief Returns the index of the variable with the smallest difference between an objective branching constraints and its coefficient.
+	 *
+	 * \param bd BranchingDecisions*. The branching decisions used for the calculations.
+	 */
+	int getLargestFreeCoef(BranchingDecisions* bd);
+
+	int getRangeObjective(int k);
 };
 
 
@@ -368,6 +418,10 @@ private:
 	IloRangeArray ptrCtes; //!< a pointer to the constraints on the objectives, to update them as necessary later
 	IloRangeArray ptrCtesInitiales; //!< a pointer to the constraints of the initial problem. Used to get the dual values.
 	IloRangeArray ptrCtesOB; //!< a pointer to the constraints used for objective branching.
+	IloRangeArray ptrCuts; //!< a pointer to the cuts generated
+	IloRangeArray ptrNoGood; // !< a pointer to the no-good constraints generated
+	int nbCuts; //!< number of cuts currently in the model
+	std::vector<int> rhsCuts;
 	bool solved; //!< true if is solved to optimality, false otherwise.
 
 public:
@@ -390,7 +444,7 @@ public:
 	 * \param s vector of doubles. The used reference point of the objective space.
 	 * \return true if it is feasible and solved to optimality, false otherwise
 	 */
-	bool solve(std::vector<double>& s);
+	bool solve(std::vector<double>& s, int iteration);
 
 	/*! \brief Check whether the point returned in the objective space is feasible for this model.
 	 *
@@ -442,6 +496,30 @@ public:
 	 * \return true if the last LP solved is solved to optimality.
 	 */
 	bool printStatus();
+
+	/* \brief Clear all the cuts generated in the model.
+	 */
+	void clearCuts();
+
+	/*! \brief Add the cover cut described in cc to the model.
+	 *
+	 * \param cc vector of vector of int. Represent the cover cuts. Each row is a new cut, column 0 is the rhs, and the other columns are the indices of the variables to add to the cut.
+	 */
+	void applyCoverCuts(std::vector<std::vector<int>>& cc);
+
+	/*! \brief Add a constraint (cut) to the model
+	 *
+	 * sum(x_i) <= rhs
+	 */
+	void addSumVarCut(MathematicalModel* lp, int rhs);
+
+	/* \brief Generate the no-good constraint corresponding to the solution.
+	 * 
+	 * \param solution s. The solution that we don't want to find anymore.
+	 */
+	void generateNoGoodConstraint(Solution& s);
+
+	void adjustSumVarCut(int rhs);
 };
 
 
@@ -482,7 +560,7 @@ public:
 	 * \param lambda vector of double. This is the weight vector.
 	 * \return true if it is feasible and solved to optimality, false otherwise [ToDo]
 	 */
-	void solve(MathematicalModel& LP, std::vector<double> lambda); // [toDo] true is solved to optimality, false otherwise
+	bool solve(MathematicalModel& LP, std::vector<double> lambda); // [toDo] true is solved to optimality, false otherwise
 
 	/*! \brief retrieve the objective value of the weighted sum.
 	 *
@@ -501,4 +579,175 @@ public:
 	 * \param bd BranchingDecisions. The data structure that describes the branching decisions to apply.
 	 */
 	void adjustBounds(BranchingDecisions& bd);
+
+	/* \brief Adjust the objective coefficient so that the WS with weights lambda is applied.
+	 *
+	 * \param LP MathematicalModel. Used to get the coefficients of each objective function.
+	 * \param lambda vector of double. The weight vector.
+     */
+	void applyCoefficient(MathematicalModel& LP, std::vector<double> lambda);
+
+	/*! \brief retrieve the objective value of the weighted sum.
+	 */
+	double retrieveObjectiveValue();
+
+	/*! \brief Solve the Weighted Sum model.
+	 */
+	void solve();
+};
+
+
+
+
+
+// ===============================================================================================================================
+//							ProbingModel
+// ===============================================================================================================================
+
+/**
+ * This model computes the weighted sum scalarization of the initial problem.
+ */
+
+class ProbingModel : public CplexModel {
+private:
+	IloNumVarArray x; //!< variables from the initial problem
+	IloObjective ptrObj; //!< the objective function object, explicitely stored here to be modified prior to solving
+	IloRangeArray ptrCtesOB; //!< a pointer to the constraints used for objective branching.
+	IloRangeArray ptrCuts; //!< a pointer to the cuts generated
+	IloRangeArray ptrNoGood;
+	int nbCuts;
+
+public:
+	/*! \brief Default constructor of Weighted Sum.
+	 *
+	 * This function creates an empty model.
+	 */
+	ProbingModel();
+
+	/*! \brief Build the Feasibility Check model.
+	 *
+	 * This function set up the variables, constraints and objective function of this linear program.
+	 * \param LP MathematicalModel. This is the model of the initial problem, from which this linear program is built.
+	 */
+	void build(MathematicalModel& LP, Parameters* param);
+
+	/*! \brief Add a constraint (cut) to the model
+	 *
+	 * sum(x_i) <= rhs
+	 */
+	/*void addSumVarCut(MathematicalModel* lp, int rhs);
+
+	void adjustSumVarCut(int rhs);*/
+
+	/*! \brief Solve the Weighted Sum model.
+	 *
+	 * This function updates the objective coefficient by considering objective k as the objective function.
+	 * \param LP MathematicalModel. This is the model of the initial problem, from which this linear program is built.
+	 * \param lambda vector of double. This is the weight vector.
+	 * \return true if it is feasible and solved to optimality, false otherwise [ToDo]
+	 */
+	bool solve(BranchingDecisions& bd, int k, MathematicalModel* lp); // [toDo] true is solved to optimality, false otherwise
+
+	/*! \brief Solve the Weighted Sum model.
+	 *
+	 * This function updates the objective coefficient by considering objective k as the objective function.
+	 * \return true if it is feasible and solved to optimality, false otherwise [ToDo]
+	 */
+	bool solve(BranchingDecisions& bd);
+
+	/*! \brief retrieve the objective value of the weighted sum.
+	 *
+	 * This function retreive from cplex the objective value of the weighted sum. It in particular gives the right-hand side
+	 * of the equation of the hyperplane defined by the normal vector lambda and that contains at least one feasible point.
+	 * \param LP MathematicalModel. This is the model of the initial problem, from which this linear program is built.
+	 * \param lambda vector of double. This is the weight vector.
+	 * \return the optimal objective value, as a double.
+	 */
+	double retrieveObjectiveValue();
+
+	/*! \brief Adjust the bounds of the variables & constraints given some branching decisions. Also set objective coefficients to objective k.
+	 *
+	 * This function extract information from the branching decisions and adjust the objective coefficients
+	 * so that the branching decisions are considered.
+	 * \param bd BranchingDecisions. The data structure that describes the branching decisions to apply.
+	 */
+	void resetBounds(BranchingDecisions& bd, int k, MathematicalModel* lp);
+
+	/*! \brief Adjust the bounds of the variables & constraints given some branching decisions.
+	 *
+	 * This function extract information from the branching decisions and adjust the objective coefficients
+	 * so that the branching decisions are considered.
+	 * \param bd BranchingDecisions. The data structure that describes the branching decisions to apply.
+	 */
+	void resetBounds(BranchingDecisions& bd);
+
+	/*! \brief Set up the objective coefficients for probing with version SCORE_WS.
+	 *
+	 * In practice, it does a weighted sum scalarization with weights (1,...,1).
+     */
+	void setUpScoreWS(MathematicalModel* lp);
+	void updateWSCoef(MathematicalModel* lp, std::vector<double>& nv);
+
+	void getReducedCosts(std::vector<double>* redCost);
+	void getSolution(std::vector<double>* sol);
+
+	/* \brief Clear all the cuts generated in the model.
+	 */
+	void clearCuts();
+
+	/*! \brief Add the cover cut described in cc to the model.
+	 *
+	 * \param cc vector of vector of int. Represent the cover cuts. Each row is a new cut, column 0 is the rhs, and the other columns are the indices of the variables to add to the cut.
+	 */
+	void applyCoverCuts(std::vector<std::vector<int>>& cc);
+
+	/* \brief Generate the no-good constraint corresponding to the solution.
+	 *
+	 * \param solution s. The solution that we don't want to find anymore.
+	 */
+	void generateNoGoodConstraint(Solution& s);
+};
+
+
+
+
+
+// ===============================================================================================================================
+//							VariableFixingModel
+// ===============================================================================================================================
+
+/**
+ * This model computes the weighted sum scalarization of the initial problem.
+ */
+
+class VariableFixingModel : public CplexModel {
+private:
+	IloNumVarArray x; //!< variables from the initial problem
+	IloObjective ptrObj; //!< the objective function object, explicitely stored here to be modified prior to solving
+	IloRangeArray ptrCtesOB; //!< a pointer to the constraints used for objective branching.
+	int nbCuts;
+
+public:
+	/*! \brief Default constructor of Weighted Sum.
+	 *
+	 * This function creates an empty model.
+	 */
+	VariableFixingModel();
+
+	/*! \brief Build the Feasibility Check model.
+	 *
+	 * This function set up the variables, constraints and objective function of this linear program.
+	 * \param LP MathematicalModel. This is the model of the initial problem, from which this linear program is built.
+	 */
+	void build(MathematicalModel& LP, Parameters* P);
+
+	/*! \brief Adjust the bounds of the variables & constraints given some branching decisions
+	 *
+	 * This function extract information from the branching decisions and adjust the objective coefficients
+	 * so that the branching decisions are considered.
+	 * \param bd BranchingDecisions. The data structure that describes the branching decisions to apply.
+	 */
+	void resetBounds(BranchingDecisions& bd);
+
+	bool presolveAndFixVariables(BranchingDecisions* bd);
 };

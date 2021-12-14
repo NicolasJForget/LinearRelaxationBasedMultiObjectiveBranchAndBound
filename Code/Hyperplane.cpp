@@ -302,3 +302,7 @@ Hyperplane* Hyperplane::get_copy() {
 std::list<Point*>* Hyperplane::get_defPts() {
     return &defPts;
 }
+
+std::vector<double>* Hyperplane::getNormalVector() {
+    return &normalVector;
+}

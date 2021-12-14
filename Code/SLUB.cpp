@@ -31,6 +31,8 @@ SLUB::SLUB(LocalUpperBound& lub) : dim(lub.get_dim()) {
     }
 }
 
+SLUB::SLUB(std::vector<int> &y) : coord(y), dim(y.size()) {}
+
 /*! \brief Constructor for an empty slub in dimension p.
  * \param p int. The dimension of the slub.
  */
@@ -99,6 +101,50 @@ bool SLUB::dominated(Point* pts) {
     return dominated;
 }
 
+
+
+bool SLUB::dominated(LocalUpperBound& u) {
+
+    bool dominated = true;
+    for (int k = 0; k < dim; k++) {
+        if (u.get_coordinate(k) > coord[k]) {
+            dominated = false;
+        }
+    }
+
+    return dominated;
+}
+
+bool SLUB::strictlyDominated(Point* pts) {
+
+    bool dominated = true;
+    int k = 0;
+
+    while (dominated && k < dim) {
+        if (pts->get_objVector(k) >= coord[k]) {
+            dominated = false;
+        }
+        k++;
+    }
+
+    return dominated;
+}
+
+bool SLUB::dominatedFix(Point* pts) {
+
+    bool dominated = true;
+    int k = 0;
+
+    while (dominated && k < dim) {
+        if (pts->get_objVector(k) > coord[k]) {
+            dominated = false;
+        }
+        k++;
+    }
+
+    return dominated;
+}
+
 /*! \brief Return the value of a specific coordinate.
  *
  * \param k int. The index of the coordinate.
@@ -113,7 +159,32 @@ int SLUB::get_coordinate(int k) {
 void SLUB::print() {
     std::cout << "( ";
     for (int k = 0; k < dim - 1; k++) {
-        std::cout << coord[k] << " , ";
+        if (coord[k] >= 10000000) std::cout << "M , ";
+        else std::cout << coord[k] << " , ";
     }
-    std::cout << coord[dim - 1] << " )\n";
+    if (coord[dim - 1] >= 10000000) std::cout << "M )\n";
+    else std::cout << coord[dim - 1] << " )\n";
+}
+
+/*! \brief Compute the distance between this SLUB and s.
+ * \param s SLUB*. The SLUB used for comparison.
+ * \return the distance, as a double.
+ */
+double SLUB::distance(SLUB* s) {
+
+    double box = 50000;
+    double dist = 0;
+
+    for (int k = 0; k < dim; k++) {
+        dist += (std::min(double(s->get_coordinate(k)), box) - std::min(double(coord[k]), box)) * (std::min(double(s->get_coordinate(k)), box) - std::min(double(coord[k]), box));
+        //std::cout << "dist : " << dist << "\n";
+        //if (dist < 0) {
+            //dist = DBL_MAX - 1;
+            //break;
+        //}
+    }
+    dist = sqrt(dist);
+    //std::cout << "sqrt dist: " << dist << "\n\n";
+
+    return dist;
 }

@@ -247,10 +247,10 @@ bool LocalUpperBound::above(Hyperplane* H, Parameters* P) {
 
     bool above = false;
     double lhs = 0;
-    double epsilon = 0; // 0.001;
+    double epsilon = 0.001; // 0.001;
 
     for (int k = 0; k <= H->get_dim(); k++) {
-        lhs += H->get_normalVector(k) * (coordinates[k] - P->GCD[k]);
+        lhs += H->get_normalVector(k) * (coordinates[k] - 1); //P->GCD[k]
     }
 
     if (lhs + epsilon >= H->get_rhs()) {
@@ -260,10 +260,41 @@ bool LocalUpperBound::above(Hyperplane* H, Parameters* P) {
     return above;
 }
 
+bool LocalUpperBound::above(Hyperplane* H) {
+
+    bool above = false;
+    double lhs = 0;
+    double epsilon = 0.001; // 0.001;
+
+    for (int k = 0; k <= H->get_dim(); k++) {
+        lhs += H->get_normalVector(k) * (coordinates[k] - 1); //P->GCD[k]
+    }
+
+    if (lhs + epsilon >= H->get_rhs()) {
+        above = true;
+    }
+
+    return above;
+}
+
+/*! \brief Compute the weigthed sum of the components in the objective space.
+ *
+ * \param vector of double l. The weight vector.
+ */
+double LocalUpperBound::getWeightedSum(std::vector<double> l) {
+
+    double ws = 0;
+    for (int k = 0; k < coordinates.size(); k++) {
+        ws += l[k] * coordinates[k];
+    }
+
+    return ws;
+}
+
 bool LocalUpperBound::isRedundant(std::list<LocalUpperBound>& NU) {
 
     std::list<LocalUpperBound>::iterator u;
-    bool isDomi;
+    bool isDomi = true;
 
     for (u = NU.begin(); u != NU.end(); u++) {
         if (&(*u) != this) {

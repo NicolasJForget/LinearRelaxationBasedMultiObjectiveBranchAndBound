@@ -10,6 +10,8 @@
  */
 LowerBoundSet::LowerBoundSet(MathematicalModel* lp, BranchingDecisions* branch) : lp(lp), status(UNSOLVED), branchDec(branch), iteration(0) {}
 
+LowerBoundSet::~LowerBoundSet() { }
+
 /* ==========================================================
         Regular Methods
  ========================================================= */
@@ -19,7 +21,7 @@ LowerBoundSet::LowerBoundSet(MathematicalModel* lp, BranchingDecisions* branch) 
  * This function will be implemented for each lower bound set in the subclasses. If the program enters in this compute(),
  * it throws a message.
  */
-void LowerBoundSet::compute() {
+void LowerBoundSet::compute(UpperBoundSet* U, std::list<LocalUpperBound*> lubDomi) {
 	throw std::string("You tried to compute a non-defined lower bound set");
     //std::cout << "\n\n    !!!! YOU ARE NOT SUPPOSED TO GET HERE !!!!\n   -> you entered the compute() function from a lower bound set object, instead of an inherited one\n\n";
 }
@@ -66,7 +68,7 @@ void LowerBoundSet::applyBranchingDecisions() {
  * \param U UpperBoundSet. The upper bound set used to do the dominance test.
  * \param param Parameters. Used to check whether all the local upper bounds have to be tested.
  */
-void LowerBoundSet::applyDominanceTest(UpperBoundSet& U, Parameters* param, std::list<int>& ndLub) {
+void LowerBoundSet::applyDominanceTest(UpperBoundSet& U, Parameters* param, std::list<int>& ndLub, std::list<LocalUpperBound*>* domiLub) {
 	throw std::string("You tried to do a dominance test with a non-defined lower bound set");
 }
 
@@ -132,7 +134,7 @@ LinearRelaxation::~LinearRelaxation() {
 		delete boundingBox[k];
 }
 
-LinearRelaxation::LinearRelaxation(MathematicalModel* lp, WeightedSumModel* ws, FeasibilityCheckModel* feas, DualBensonModel* db, FurthestFeasiblePointModel* bvp, BranchingDecisions* branch, Statistics* S) : LowerBoundSet(lp,branch), weightedSum(ws), feasibilityCheck(feas), dualBenson(db), furthestFeasiblePoint(bvp), antiIdealPoint(lp->get_p()), interiorPoint(lp->get_p()), boundingBox(0), warmstarted(false), facets(0), extrPoints(0), extrRays(0), nbIterations(0), call(0), firstGeneration(true), S(S), checkPointDestroyed(false), attemptedDeleteNewHpp(false) { //stat()
+LinearRelaxation::LinearRelaxation(MathematicalModel* lp, WeightedSumModel* ws, FeasibilityCheckModel* feas, DualBensonModel* db, FurthestFeasiblePointModel* bvp, BranchingDecisions* branch, Statistics* S, Parameters* param) : LowerBoundSet(lp,branch), weightedSum(ws), feasibilityCheck(feas), dualBenson(db), furthestFeasiblePoint(bvp), antiIdealPoint(lp->get_p()), interiorPoint(lp->get_p()), boundingBox(0), warmstarted(false), firstGeneration(true), checkPointDestroyed(false), attemptedDeleteNewHpp(false), facets(0), extrPoints(0), extrRays(0), nbIterations(0), call(0), S(S) { //stat()
     //initialize(*lp);
 	for (int k = 0; k < lp->get_p(); k++) {
 		for (int i = 0; i < lp->get_n(); i++) {
@@ -148,13 +150,22 @@ LinearRelaxation::LinearRelaxation(MathematicalModel* lp, WeightedSumModel* ws, 
 		//antiIdealPoint[k] *= 100000;
 		interiorPoint[k] -= 1; // arbitrary, to be modified ? + do we actually need interior pts ?
 	}
+
+	/*if (param->variableSelection == PROBING_CUTS && lp->isBinary()) {
+		if (branch->lb[branch->lastSplittedIndex] == 1)
+			feasibilityCheck->addSumVarCut(lp, branch->cut1[branch->lastSplittedIndex]);
+		else if (branchDec->lb[branchDec->lastSplittedIndex] == 0)
+			feasibilityCheck->addSumVarCut(lp, branch->cut0[branch->lastSplittedIndex]);
+		else
+			std::cout << "eh ?!\n";
+	}*/
 }
 
 /*! \brief Default constructor of a linear relaxation, with models built internally.
  *
  * \param lp MathematicalModel*. A pointer to the problem this lower bound set refers to.
  */
-LinearRelaxation::LinearRelaxation(MathematicalModel* lp, BranchingDecisions* branch, Statistics* S) : LowerBoundSet(lp,branch), antiIdealPoint(lp->get_p()), interiorPoint(lp->get_p()), boundingBox(0), warmstarted(false), facets(0), extrPoints(0), extrRays(0), nbIterations(0), call(0), firstGeneration(true), S(S), checkPointDestroyed(false), attemptedDeleteNewHpp(false) { // stat()
+LinearRelaxation::LinearRelaxation(MathematicalModel* lp, BranchingDecisions* branch, Statistics* S, Parameters* param) : LowerBoundSet(lp,branch), antiIdealPoint(lp->get_p()), interiorPoint(lp->get_p()), boundingBox(0), warmstarted(false), firstGeneration(true), checkPointDestroyed(false), attemptedDeleteNewHpp(false), facets(0), extrPoints(0), extrRays(0), nbIterations(0), call(0), S(S) { // stat()
 
 	weightedSum = new WeightedSumModel();
 	weightedSum->build(*lp);
@@ -187,7 +198,7 @@ LinearRelaxation::LinearRelaxation(MathematicalModel* lp, BranchingDecisions* br
  *
  * \param LPrelax LinearRelaxation. The LinearRelaxation this object is a copy of.
  */
-LinearRelaxation::LinearRelaxation(LinearRelaxation* LPrelax, BranchingDecisions* branch) : LowerBoundSet(LPrelax->lp,branch), weightedSum(LPrelax->weightedSum), feasibilityCheck(LPrelax->feasibilityCheck), dualBenson(LPrelax->dualBenson), furthestFeasiblePoint(LPrelax->furthestFeasiblePoint), antiIdealPoint(LPrelax->antiIdealPoint), interiorPoint(LPrelax->interiorPoint), warmstarted(true), nbIterations(0), call(LPrelax->call), firstGeneration(LPrelax->firstGeneration), S(LPrelax->S), attemptedDeleteNewHpp(LPrelax->attemptedDeleteNewHpp) { // CHANGE WARMSTARTED TO TRUE LATER stat()
+LinearRelaxation::LinearRelaxation(LinearRelaxation* LPrelax, BranchingDecisions* branch, Parameters* param) : LowerBoundSet(LPrelax->lp,branch), weightedSum(LPrelax->weightedSum), feasibilityCheck(LPrelax->feasibilityCheck), dualBenson(LPrelax->dualBenson), furthestFeasiblePoint(LPrelax->furthestFeasiblePoint), antiIdealPoint(LPrelax->antiIdealPoint), interiorPoint(LPrelax->interiorPoint), warmstarted(true), firstGeneration(LPrelax->firstGeneration), checkPointDestroyed(LPrelax->checkPointDestroyed), attemptedDeleteNewHpp(LPrelax->attemptedDeleteNewHpp), nbIterations(0), call(LPrelax->call), S(LPrelax->S) { // CHANGE WARMSTARTED TO TRUE LATER stat()
 
 	// Bouding box
 	Hyperplane* H;
@@ -279,6 +290,15 @@ LinearRelaxation::LinearRelaxation(LinearRelaxation* LPrelax, BranchingDecisions
 			*adjacentVertex = (*adjacentVertex)->get_copy();
 		}
 	}
+
+	/*if (param->variableSelection == PROBING_CUTS && lp->isBinary()) {
+		if (branch->lb[branch->lastSplittedIndex] == 1)
+			feasibilityCheck->addSumVarCut(lp, branch->cut1[branch->lastSplittedIndex]);
+		else if (branchDec->lb[branchDec->lastSplittedIndex] == 0)
+			feasibilityCheck->addSumVarCut(lp, branch->cut0[branch->lastSplittedIndex]);
+		else
+			std::cout << "eh ?!\n";
+	}*/
 }
 
 /* ==========================================================
@@ -318,7 +338,7 @@ void LinearRelaxation::initialize() { //MathematicalModel& lp
 
 		// call Cplex to compute the hyperplane
 		S->lpSolved++;
-		dummy = feasibilityCheck->solve(refPt);
+		dummy = feasibilityCheck->solve(refPt, iteration);
 		normalVector = feasibilityCheck->extractNormalVector();
 		rhs = feasibilityCheck->extractConstant(*lp, branchDec);
 		y[k] = rhs;
@@ -378,11 +398,12 @@ void LinearRelaxation::initialize() { //MathematicalModel& lp
 		extrPoints.push_back(eRay[k]);
 	}
 
+	S->nbNewFacetsCurrent += lp->get_p();
 }
 
 /*! \brief This function computes the linear relaxation
  */
-void LinearRelaxation::compute() {
+void LinearRelaxation::compute(UpperBoundSet* U, std::list<LocalUpperBound*> lubDomi) {
 
 	call++;
 	try {
@@ -391,9 +412,11 @@ void LinearRelaxation::compute() {
 		}
 		else {
 
+			bool triggerRecomputation = attemptedDeleteNewHpp;
+
 			if (!warmstarted || attemptedDeleteNewHpp) { // || branchDec->depth % CORRECTION_WARMSTART == 0
 				if (warmstarted) {
-					std::cout << "LP relax recomputed at iteration " << iteration << "\n";
+					//std::cout << "LP relax recomputed at iteration " << iteration << "\n";
 					clear();
 				}
 				S->timeInitialization.StartTimer();
@@ -404,6 +427,7 @@ void LinearRelaxation::compute() {
 			bool feasible(true);
 			std::vector<double> y;
 			Hyperplane* H;
+			Timer cpuD = Timer();
 
 			// For exploring and updating list of extreme points at the same time
 			std::list<Point*>::iterator currentPoint;
@@ -418,6 +442,7 @@ void LinearRelaxation::compute() {
 			bool allFeasible = false;
 			bool boundaryUpdated = false;
 			call = 0;
+			bool hyperplaneDominated = false;
 
 			currentPoint = extrPoints.begin();
 			checkpoint = currentPoint;
@@ -441,7 +466,7 @@ void LinearRelaxation::compute() {
 
 					if ((*currentPoint)->isNew() || (*currentPoint)->get_nbVar() == 0) {
 						S->timeFeasibilityCheck.StartTimer();
-						feasible = feasibilityCheck->solve(*(*currentPoint)->get_objVector());
+						feasible = feasibilityCheck->solve(*(*currentPoint)->get_objVector(), iteration);
 						S->timeFeasibilityCheck.StopTimer();
 						/*std::cout << " Cplex called on : ";
 						(*currentPoint)->print();
@@ -451,10 +476,11 @@ void LinearRelaxation::compute() {
 					else {
 						if ((*currentPoint)->satisfyBranchingDecisions(branchDec)) {
 							feasible = true;
+							S->nbFeasVtxCurrent++;
 						}
 						else { // check for alternative pre-images
 							S->timeFeasibilityCheck.StartTimer();
-							feasible = feasibilityCheck->solve(*(*currentPoint)->get_objVector());
+							feasible = feasibilityCheck->solve(*(*currentPoint)->get_objVector(), iteration);
 							S->timeFeasibilityCheck.StopTimer();
 							/*std::cout << " Cplex called on : ";
 							(*currentPoint)->print();
@@ -487,10 +513,30 @@ void LinearRelaxation::compute() {
 						S->timeFeasibilityCheck.StopTimer();
 
 						H = new Hyperplane(normalVector, rhs);
+						S->nbNewFacetsCurrent++;
+						bool isNewWnd = false;
+						for (int k = 0; k != lp->get_p(); k++) {
+							if (H->get_normalVector(k) == 0)
+								isNewWnd = true;
+						}
+						if (!isNewWnd)
+							S->newFacetsNoRayCurrent++;
 
+						cpuD.StartTimer();
 						S->timeUpdatePolyhedron.StartTimer();
 						updatePolyhedron3(H,*currentPoint);
 						S->timeUpdatePolyhedron.StopTimer();
+						cpuD.StopTimer();
+
+						if (ENABLE_EARLY_LB_DOMI) {
+							S->timeDominanceTest.StartTimer();
+							hyperplaneDominated = U->testWeightedSumValue(branchDec, *H->getNormalVector(), H->get_rhs());
+							S->timeDominanceTest.StopTimer();
+
+							if (hyperplaneDominated) {
+								std::cout << " we stop early LB computation.\n";
+							}
+						}
 
 						// if the previous checkpoint has been destroyed, search for a new one
 
@@ -500,7 +546,9 @@ void LinearRelaxation::compute() {
 								checkpoint++;
 							}
 							checkPointDestroyed = false;
-							(*checkpoint)->becomesCheckpoint();
+							if (!(checkpoint == extrPoints.end())) {
+								(*checkpoint)->becomesCheckpoint();
+							}
 						}					
 						currentPoint = checkpoint;
 					}
@@ -513,27 +561,55 @@ void LinearRelaxation::compute() {
 				tps.StopTimer();
 				//std::cout << "timer : " << tps.CumulativeTime("sec") << "\n";
 
-			} while (currentPoint != extrPoints.end() && tps.CumulativeTime("sec") <= TIME_OUT_LB); // && tps.CumulativeTime("sec") <= 1000
+			} while (currentPoint != extrPoints.end() && tps.CumulativeTime("sec") <= TIME_OUT_LB && !hyperplaneDominated && (!attemptedDeleteNewHpp || triggerRecomputation)); // && tps.CumulativeTime("sec") <= 1000
 
-			filterExtremePoints();
-			status = SOLVED;
-			//std::cout << " \n LP solved : " << S->lpSolved << "\n";
-			/*if (iteration == 1) {
-				print();
-				std::cout << "oof\n";
-			}*/
-			//exportIteration();
-			if (iteration == DEBUG_IT) { // DEBUG_IT
-				//print();
-				exportProblem();
-				std::cout << "stop";
+
+			if (attemptedDeleteNewHpp && !triggerRecomputation) {
+				compute(U,lubDomi);
 			}
-			firstGeneration = false;
-			/*if (iteration == 93) {
-				throw std::string("Debug\n");
-			}*/
+			else {
+				filterExtremePoints();
+				status = SOLVED;
+				//std::cout << " \n LP solved : " << S->lpSolved << "\n";
+				/*if (iteration == 1) {
+					print();
+					std::cout << "oof\n";
+				}*/
+				//exportIteration();
+				if (iteration == DEBUG_IT) { // DEBUG_IT
+					//print();
+					exportProblem();
+					std::cout << "stop";
+				}
+				firstGeneration = false;
+				/*if (iteration == 93) {
+					throw std::string("Debug\n");
+				}*/
 
+				S->cpuCurrent = cpuD.CumulativeTime("sec");
+				for (std::list<Point*>::iterator vtx = extrPoints.begin(); vtx != extrPoints.end(); vtx++) {
+					if (!(*vtx)->is_ray())
+						S->vtxOnlyCurrent++;
+				}
+				bool isWnd = false;
+				for (std::list<Hyperplane*>::iterator f = facets.begin(); f != facets.end(); f++) {
+					isWnd = false;
+					for (int i = 0; i != lp->get_p(); i++) {
+						if ((*f)->get_normalVector(i) == 0)
+							isWnd = true;
+					}
+					if (!isWnd)
+						S->facetsNoRayCurrent++;
+				}
+			}
+			
 		}
+		//std::cout << "extr pts: " << extrPoints.size() << "\n";
+
+		/*for (std::list<Hyperplane*>::iterator h = facets.begin(); h != facets.end(); h++) {
+			std::cout << " facet rhs: " << (*h)->get_rhs() << "\n";
+		}*/
+		//showPercentageIntegrality();
 	}
 	catch (IloException& ie)
 	{
@@ -1227,7 +1303,7 @@ bool LinearRelaxation::isFeasible() {
 
 	S->lpSolved++;
 	S->timeFeasibilityCheck.StartTimer();
-	feasibilityCheck->solve(antiIdealPoint); // b
+	feasibilityCheck->solve(antiIdealPoint, iteration); // b
 	S->timeFeasibilityCheck.StopTimer();
 
 	return feasibilityCheck->getStatus();
@@ -1305,13 +1381,13 @@ void LinearRelaxation::print() {
 				(*v)->print();
 				std::cout << "\n";
 			}*/
-			/*if ((*it2)->get_nbVar() != 0) {
+			if ((*it2)->get_nbVar() != 0) {
 				std::cout << " ( ";
 				for (int k = 0; k < lp->get_n() - 1; k++) {
 					std::cout << (*it2)->get_preImage(k) << " , ";
 				}
 				std::cout << (*it2)->get_preImage(lp->get_n() - 1) << " )\n";
-			}*/
+			}
 		}
 	}
 	std::cout << "\n";
@@ -1335,6 +1411,8 @@ void LinearRelaxation::gatherIntegerSolutions(UpperBoundSet& U) {
 			if ((*vertex)->isInteger()) {
 				//std::cout << " is integer";
 				//(*vertex)->setAsIntegratedInUB(); // marche pas !!!!
+				S->avgIntegerVtxCurrent++;
+				//std::cout << S->avgIntegerVtxCurrent << "\n";
 				if ((*vertex)->isNew()) {
 					U.updateUB(**vertex);
 				}
@@ -1367,7 +1445,7 @@ void LinearRelaxation::applyBranchingDecisions() {
  * \param U UpperBoundSet. The upper bound set used to do the dominance test.
  * \param param Parameters. Used to check whether all the local upper bounds have to be tested.
  */
-void LinearRelaxation::applyDominanceTest(UpperBoundSet& U, Parameters* param, std::list<int>& ndLub) {
+void LinearRelaxation::applyDominanceTest(UpperBoundSet& U, Parameters* param, std::list<int>& ndLub, std::list<LocalUpperBound*>* domiLub) {
 
 	std::list<Hyperplane*>::iterator H;
 	std::list<LocalUpperBound>* NU = U.getLubs();
@@ -1387,6 +1465,7 @@ void LinearRelaxation::applyDominanceTest(UpperBoundSet& U, Parameters* param, s
 				if (!(u->above(*H,param))) { // if lub below an hyperplane H, not dominated
 					lubDominated = false;
 				}
+				S->nbDominanceTestLubHpp += 1.0;
 				H++;
 			}
 			if (lubDominated) {
@@ -1399,7 +1478,9 @@ void LinearRelaxation::applyDominanceTest(UpperBoundSet& U, Parameters* param, s
 			status = DOMINATED;
 		}
 	}
-	else if (param->objectiveBranching == FULL_OBJECTIVE_BRANCHING || param->objectiveBranching == CONE_OBJECTIVE_BRANCHING) {
+	else if (param->objectiveBranching == FULL_OBJECTIVE_BRANCHING || param->objectiveBranching == CONE_OBJECTIVE_BRANCHING || param->objectiveBranching == LIMITED_OBJECTIVE_BRANCHING) {
+
+		if (ENABLE_EARLY_LB_DOMI) domiLub->clear();
 
 		std::list<int>::iterator nextId = ndLub.begin();
 		std::list<int>::iterator jump;
@@ -1407,59 +1488,74 @@ void LinearRelaxation::applyDominanceTest(UpperBoundSet& U, Parameters* param, s
 		bool weCheckedAllKnownNdLubs = false;
 		for (u = NU->begin(); u != NU->end(); u++) {
 
-			lubDominated = true; // by default, the lub is dominated
-			// detect if next lub is known as dominated
-			if (!weCheckedAllKnownNdLubs) {
-				// we go through the list until an existing lub is found.
-				while (nextId != ndLub.end() && u->get_id() > * nextId) { // while we hit a lub that does not exists, we delete it
-					jump = nextId;
-					jump++;
-					ndLub.erase(nextId);
-					nextId = jump;
+			//lubDominated = true; // by default, the lub is dominated
+			//// detect if next lub is known as dominated
+			//if (!weCheckedAllKnownNdLubs) {
+			//	// we go through the list until an existing lub is found.
+			//	while (nextId != ndLub.end() && u->get_id() > * nextId) { // while we hit a lub that does not exists, we delete it
+			//		jump = nextId;
+			//		jump++;
+			//		ndLub.erase(nextId);
+			//		nextId = jump;
+			//	}
+			//	// the actual test
+			//	if (nextId == ndLub.end()) { // we went trough all the lus with a known status (new ones excluded)
+			//		weCheckedAllKnownNdLubs = true; // we want to skip this test now because we checked all the lubs
+			//	}
+			//	else if (u->get_id() == *nextId) { // lub is non-dominated
+			//		nextId++;
+			//		lubDominated = false; // the next test is skipped
+			//		//std::cout << " jump " << u->get_id() << "\n";
+			//	}
+			//}
+			//
+			//// we proceed to the dominance test if we don't know the status of u
+			//if (lubDominated) {
+			//	H = facets.begin();
+			//	while (lubDominated && H != facets.end()) {
+			//		if (!(u->above(*H, param))) { // if lub below an hyperplane H, not dominated
+			//			lubDominated = false;
+			//		}
+			//		H++;
+			//	}
+			//	if (lubDominated) {
+			//		lbDominated = false;
+			//	}
+			//	else { // insert sorted
+			//		//nextId--;
+			//		locInsert = nextId;//ndLub.begin();
+			//		while (locInsert != ndLub.end() && *locInsert <= u->get_id()) {
+			//			locInsert++;
+			//			//std::cout << " buluuh\n";
+			//		}
+			//		//std::cout << u->get_id() << " placed before " << *nextId;
+			//		if (locInsert == ndLub.end()) {
+			//			ndLub.push_back(u->get_id());
+			//		}
+			//		else {
+			//			ndLub.insert(locInsert,u->get_id());
+			//		}
+			//		/*std::cout << " lub nd : " << u->get_id() << std::endl;
+			//		for (locInsert = ndLub.begin(); locInsert != ndLub.end(); locInsert++) {
+			//			std::cout << " " << *locInsert;
+			//		}
+			//		std::cout << "\n";*/
+			//	}
+			//}
+
+			H = facets.begin();
+			lubDominated = true;
+			while (lubDominated && H != facets.end()) {
+				if (!(u->above(*H, param))) { // if lub below an hyperplane H, not dominated
+					lubDominated = false;
 				}
-				// the actual test
-				if (nextId == ndLub.end()) { // we went trough all the lus with a known status (new ones excluded)
-					weCheckedAllKnownNdLubs = true; // we want to skip this test now because we checked all the lubs
-				}
-				else if (u->get_id() == *nextId) { // lub is non-dominated
-					nextId++;
-					lubDominated = false; // the next test is skipped
-					//std::cout << " jump " << u->get_id() << "\n";
-				}
+				S->nbDominanceTestLubHpp += 1.0;
+				H++;
 			}
-			
-			// we proceed to the dominance test if we don't know the status of u
+
 			if (lubDominated) {
-				H = facets.begin();
-				while (lubDominated && H != facets.end()) {
-					if (!(u->above(*H, param))) { // if lub below an hyperplane H, not dominated
-						lubDominated = false;
-					}
-					H++;
-				}
-				if (lubDominated) {
-					lbDominated = false;
-				}
-				else { // insert sorted
-					//nextId--;
-					locInsert = nextId;//ndLub.begin();
-					while (locInsert != ndLub.end() && *locInsert <= u->get_id()) {
-						locInsert++;
-						//std::cout << " buluuh\n";
-					}
-					//std::cout << u->get_id() << " placed before " << *nextId;
-					if (locInsert == ndLub.end()) {
-						ndLub.push_back(u->get_id());
-					}
-					else {
-						ndLub.insert(locInsert,u->get_id());
-					}
-					/*std::cout << " lub nd : " << u->get_id() << std::endl;
-					for (locInsert = ndLub.begin(); locInsert != ndLub.end(); locInsert++) {
-						std::cout << " " << *locInsert;
-					}
-					std::cout << "\n";*/
-				}
+				lbDominated = false;
+				domiLub->push_back(&(*u));
 			}
 		}
 		if (lbDominated) {
@@ -1471,6 +1567,8 @@ void LinearRelaxation::applyDominanceTest(UpperBoundSet& U, Parameters* param, s
 		throw std::string("Error: this objective branching parameter is not supported yet for dominance test.");
 	}
 }
+
+
 
 /*! \brief A virtual function that checks whether this lower bound set the super local upper bound a point y.
  *
@@ -1586,12 +1684,13 @@ int LinearRelaxation::computeMostOftenFractionalIndex(SLUB& slub) {
 		if (!(*pt)->is_ray() && (*pt)->get_nbVar() != 0) { // last condition happen if timer threshold is reached during LB computation
 			//(*pt)->printPreImage();
 			if (slub.dominated(*pt)){
+				//std::cout << " is considered";
 				(*pt)->becomesDominater();
 				nbIncludedPoints++;
 				empty = false;
 				for (int i = 0; i < lp->get_n(); i++) {
 					val = (*pt)->get_preImage(i);
-					if (val - trunc(val + 0.00000000001) >= 0.00000000001) { // for numerical instabilities
+					if (val - trunc(val + 0.0000001) >= 0.0000001) { // for numerical instabilities
 						counter[i]++;
 						allInteger = false;
 					}
@@ -1601,20 +1700,9 @@ int LinearRelaxation::computeMostOftenFractionalIndex(SLUB& slub) {
 			else {
 				(*pt)->becomesNonDominater();
 			}
+			//std::cout << "\n";
 		}
 	}
-
-	/*if (iteration == 1436) {
-		std::cout << "counter:";
-		for (int i = 0; i < lp->get_n(); i++) {
-			std::cout << " " << counter[i];
-		}
-		std::cout << "\navg val:";
-		for (int i = 0; i < lp->get_n(); i++) {
-			std::cout << " " << avgValue[i] / nbIncludedPoints;
-		}
-		std::cout << "\n";
-	}*/
 
 	int index = -1;
 	if (!allInteger) { // if there exists at least one fractional variable in one of the extreme points
@@ -1632,18 +1720,21 @@ int LinearRelaxation::computeMostOftenFractionalIndex(SLUB& slub) {
 		double refVal = 0;
 		for (int i = 0; i < lp->get_n(); i++) {
 			if (branchDec->ub[i] != branchDec->lb[i]) {
-				refVal = (branchDec->ub[i] - branchDec->lb[i]) / 2;
+				refVal = double(branchDec->ub[i] - branchDec->lb[i]) / 2;
+				//refVal = (branchDec->ub[i] - branchDec->lb[i]) / 2;
 				avgValue[i] = avgValue[i] / nbIncludedPoints;
 				avgValue[i] = avgValue[i] - trunc(avgValue[i]);
+				//std::cout << i << " -> " << avgValue[i] << " vs " << refVal << " ";
 				if (abs(avgValue[i] - refVal) < minDiff) {
 					index = i;
 					minDiff = abs(avgValue[i] - 0.5);
+					//std::cout << " => minDiff = " << minDiff;
 				}
+				//std::cout << "\n";
 			}
 		}
 	}
 	else { // if there is no extreme point at all, or a unique integer extreme point
-		//std::cout << "empty sub-pb !\n";
 		int i = 0;
 		while (i < lp->get_n()) { // index == -1 && 
 			if (branchDec->ub[i] != branchDec->lb[i]) {
@@ -1653,47 +1744,113 @@ int LinearRelaxation::computeMostOftenFractionalIndex(SLUB& slub) {
 		}
 	}
 
-	//if (lp->isBinary() && (branchDec->ub[index] != 1 || branchDec->lb[index] != 0)) {
-
-	//	std::cout << "\n At iteration: " << iteration << std::endl;
-	//	print();
-	//	std::cout << "\n OB region: ";
-	//	slub.print();
-	//	std::cout << "\n nb included pts: " << nbIncludedPoints << ":\n";
-	//	for (pt = extrPoints.begin(); pt != extrPoints.end(); pt++) {
-	//		if (!(*pt)->isOnBoundingBox() && slub.dominated(*pt)) {
-	//			(*pt)->print();
-	//			//(*pt)->printPreImage();
-	//			std::cout << "\n";
-	//		}
-	//	}
-	//	std::cout << "  -> index splitted: " << index << std::endl;
-
-	//	std::cout << "counter:";
-	//	for (int i = 0; i < lp->get_n(); i++) {
-	//		std::cout << " " << counter[i];
-	//	}
-	//	std::cout << "\navg val:";
-	//	for (int i = 0; i < lp->get_n(); i++) {
-	//		std::cout << " " << avgValue[i] / nbIncludedPoints;
-	//	}
-	//	std::cout << "\n";
-
-		/*for (int i = 0; i < lp->get_n(); i++) {
-			std::cout << "----\n i = " << i << "u-l = " << branchDec->lb[i] << "-" << branchDec->ub[i] << "\n count = " << counter[i] << "\n val = " << avgValue[i];
-		}*/
-	/*	throw std::string("\n\nDebug: pb found in research of splitting index for a binary problem.");
-	}*/
-
-	//if (iteration == 1436)
-		//std::cout << " splitting index : " << index << "\n";
-
 	if (index == -1) {
-		//print();
 		std::cout << "\n -> at iteration " << iteration << "\n";
+		std::cout << "stopere plz";
 		throw std::string("Error: invalid splitting index in ComputeMostOftenFractionalIndex");
 	}
+
+	//std::cout << "index is: " << index << "\n\n";
 	
+	return index;
+}
+
+/*! \brief Computes the index of the most often fractional variable among the extreme points.
+ *
+ * \param slub SLUB. The slub that defines the part of the objective space to search in.
+ * \return the index of the most often fractional variable, as an int.
+ */
+int LinearRelaxation::computeMostOftenFractionalIndex(SLUB& slub, BranchingDecisions* newbd) {
+
+	std::list<Point*>::iterator pt;
+	std::vector<int> counter(lp->get_n(), 0);
+	std::vector<double> avgValue(lp->get_n(), 0);
+	double val;
+	int nbIncludedPoints = 0;
+	bool allInteger = true;
+	bool empty = true;
+	//std::cout << "\n------- splitting -------\n";
+	for (pt = extrPoints.begin(); pt != extrPoints.end(); pt++) {
+		//(*pt)->print();
+		//std::cout << "\n";
+		(*pt)->becomesUnknownDominater();
+		// OnBoundingBox
+		if (!(*pt)->is_ray() && (*pt)->get_nbVar() != 0) { // last condition happen if timer threshold is reached during LB computation
+			//(*pt)->printPreImage();
+			if (slub.dominated(*pt)) {
+				//std::cout << " is considered";
+				(*pt)->becomesDominater();
+				nbIncludedPoints++;
+				empty = false;
+				for (int i = 0; i < lp->get_n(); i++) {
+					if (newbd->ub[i] != newbd->lb[i]) {
+						val = (*pt)->get_preImage(i);
+						if (val - trunc(val + 0.0000001) >= 0.0000001) { // for numerical instabilities
+							counter[i]++;
+							allInteger = false;
+						}
+						avgValue[i] += val;
+					}
+				}
+			}
+			else {
+				(*pt)->becomesNonDominater();
+			}
+			//std::cout << "\n";
+		}
+	}
+
+	int index = -1;
+	if (!allInteger) { // if there exists at least one fractional variable in one of the extreme points
+		//std::cout << "here\n";
+		int max = 0;
+		for (int i = 0; i < lp->get_n(); i++) {
+			if (counter[i] > max) {
+				max = counter[i];
+				index = i;
+			}
+		}
+		for (int i = 0; i < lp->get_n(); i++) {
+			//if (counter[i] == max) std::cout << "check\n";
+		}
+	}
+	else if (nbIncludedPoints >= 2) { // if there exists at least two extreme point (integer only)  // !empty
+		double minDiff = 10000;
+		double refVal = 0;
+		for (int i = 0; i < lp->get_n(); i++) {
+			if (newbd->ub[i] != newbd->lb[i]) {
+				refVal = double(branchDec->ub[i] - branchDec->lb[i]) / 2;
+				//refVal = (branchDec->ub[i] - branchDec->lb[i]) / 2;
+				avgValue[i] = avgValue[i] / nbIncludedPoints;
+				avgValue[i] = avgValue[i] - trunc(avgValue[i]);
+				//std::cout << i << " -> " << avgValue[i] << " vs " << refVal << " ";
+				if (abs(avgValue[i] - refVal) < minDiff) {
+					index = i;
+					minDiff = abs(avgValue[i] - 0.5);
+					//std::cout << " => minDiff = " << minDiff;
+				}
+				//std::cout << "\n";
+			}
+		}
+	}
+	else { // if there is no extreme point at all, or a unique integer extreme point
+		int i = 0;
+		while (i < lp->get_n()) { // index == -1 && 
+			if (newbd->ub[i] != newbd->lb[i]) {
+				index = i;
+			}
+			i++;
+		}
+	}
+
+	if (index == -1) {
+		std::cout << "\n -> at iteration " << iteration << "\n";
+		std::cout << "stopere plz";
+		throw std::string("Error: invalid splitting index in ComputeMostOftenFractionalIndex");
+	}
+
+	//std::cout << "index is: " << index << "\n\n";
+
 	return index;
 }
 
@@ -1707,36 +1864,52 @@ int LinearRelaxation::computeMedianSplittingValue2(SLUB& slub, int i) {
 
 	std::vector<double> valDec(0); // decimal values
 	std::vector<double> valInt(0); // integer values
+	std::vector<double> valAll(0);
 
 	std::list<Point*>::iterator pt;
 	double val;
 	for (pt = extrPoints.begin(); pt != extrPoints.end(); pt++) {
 		if (!(*pt)->is_ray() && slub.dominated(*pt) && (*pt)->get_nbVar() != 0) {
 			val = (*pt)->get_preImage(i);
-			if (val - trunc(val + 0.00000000001) >= 0.00000000001) { // for numerical instabilities -> if integer
+			if (val - trunc(val + 0.0000001) >= 0.0000001) { // for numerical instabilities -> if integer
 				valDec.push_back(val);
 			}
 			else {
 				valInt.push_back(val);
 			}
+			valAll.push_back(val);
 		}
 	}
 
 	int splittingValue = 0;
-	if (valInt.size() == 0 && valDec.size() == 0) { // we have no point in the cone
+	//if (valInt.size() == 0 && valDec.size() == 0) { // we have no point in the cone
+	//	splittingValue = branchDec->lb[i];
+	//}
+	//else if (valDec.size() == 0) { // no decimal values
+	//	std::sort(valInt.begin(),valInt.end());
+	//	splittingValue = valInt[static_cast<int>(floor(valInt.size()/2))];
+	//}
+	//else {
+	//	std::sort(valDec.begin(), valDec.end());
+	//	splittingValue = valDec[static_cast<int>(floor(valDec.size() / 2))];
+	//}
+
+	//if (splittingValue == branchDec->ub[i]) { // see if that does not creates an indesired behaviour, e.g. infinite loop in branching // lp->getUb(i)
+	//	splittingValue -= 1;
+	//}
+
+	if (valAll.size() == 0) {
 		splittingValue = branchDec->lb[i];
 	}
-	else if (valDec.size() == 0) { // no decimal values
-		std::sort(valInt.begin(),valInt.end());
-		splittingValue = valInt[static_cast<int>(floor(valInt.size()/2))];
-	}
 	else {
-		std::sort(valDec.begin(), valDec.end());
-		splittingValue = valDec[static_cast<int>(floor(valDec.size() / 2))];
-	}
-
-	if (splittingValue == branchDec->ub[i]) { // see if that does not creates an indesired behaviour, e.g. infinite loop in branching // lp->getUb(i)
-		splittingValue -= 1;
+		std::sort(valAll.begin(), valAll.end());
+		int middle = static_cast<int>(floor(valAll.size() / 2));
+		if (valAll.size() % 2 == 0) {
+			splittingValue = floor((valAll[middle - 1] + valAll[middle]) / 2);
+		}
+		else {
+			splittingValue = floor(valAll[middle]);
+		}
 	}
 
 	return splittingValue;
@@ -1748,7 +1921,7 @@ int LinearRelaxation::computeMedianSplittingValue2(SLUB& slub, int i) {
  * \param i int. Index of the splitting variable.
  * \return the index of the most often fractional variable, as an int.
  */
-int LinearRelaxation::computeMedianSplittingValue(SLUB& slub, int i) {
+int LinearRelaxation::computeMedianSplittingValue(SLUB& slub, int i, int maxUb) {
 
 	std::vector<double> valDec(0); // decimal values
 	//std::vector<double> valInt(0); // integer values
@@ -1768,14 +1941,23 @@ int LinearRelaxation::computeMedianSplittingValue(SLUB& slub, int i) {
 	}
 	else {
 		std::sort(valDec.begin(), valDec.end());
-		splittingValue = valDec[static_cast<int>(floor(valDec.size() / 2))];
+		//splittingValue = valDec[static_cast<int>(floor(valDec.size() / 2))];
+		int middle = static_cast<int>(floor(valDec.size() / 2));
+		if (valDec.size() % 2 == 0) {
+			splittingValue = floor((valDec[middle - 1] + valDec[middle]) / 2);
+		}
+		else {
+			splittingValue = floor(valDec[middle]);
+		}
 	}
 
 	if (splittingValue == branchDec->ub[i]) { // see if that does not creates an indesired behaviour, e.g. infinite loop in branching // lp->getUb(i)
 		splittingValue -= 1;
 	}
 
-	return splittingValue;
+	//std::cout << "split val: " << splittingValue << "\n";
+
+	return min(splittingValue, maxUb - 1);
 }
 
 /*! \brief Computes most often fractional value of variable $x_i$ among the extreme points of the linear relaxation.
@@ -1784,9 +1966,11 @@ int LinearRelaxation::computeMedianSplittingValue(SLUB& slub, int i) {
  * \param i int. Index of the splitting variable.
  * \return the index of the most often fractional variable, as an int.
  */
-int LinearRelaxation::computeMostOftenFractionalSplittingValue(SLUB& slub, int i) {
+int LinearRelaxation::computeMostOftenFractionalSplittingValue(SLUB& slub, int i, int maxUb) {
 
 	int maxVal = 0;
+	int avgVal = 0;
+	int nbPts = 0;
 
 	// get max val
 
@@ -1800,12 +1984,16 @@ int LinearRelaxation::computeMostOftenFractionalSplittingValue(SLUB& slub, int i
 				val = (*pt)->get_preImage(i);
 				if (val >= maxVal)
 					maxVal = val;
+				//std::cout << " " << val;
+				avgVal += val;
+				nbPts++;
 			}
 			else {
 				//(*pt)->becomesNonDominater();
 			}
 		}
 	}
+	avgVal /= nbPts;
 
 	// get frational val
 
@@ -1813,7 +2001,7 @@ int LinearRelaxation::computeMostOftenFractionalSplittingValue(SLUB& slub, int i
 	for (pt = extrPoints.begin(); pt != extrPoints.end(); pt++) {
 		if (!(*pt)->isOnBoundingBox() && slub.dominated(*pt) && (*pt)->get_nbVar() != 0) {
 			val = (*pt)->get_preImage(i);
-			if (val - trunc(val + 0.0000000001) >= 0.0000000001) // if not integer
+			if (val - trunc(val + 0.0000001) >= 0.0000001) // if not integer
 				nbFracVal[floor(val)]++; // each cell correspond to one integer value, and we look at the floor of values of extr pts to get what is the int value
 		}
 	}
@@ -1826,11 +2014,61 @@ int LinearRelaxation::computeMostOftenFractionalSplittingValue(SLUB& slub, int i
 	}
 	else {
 		vl = std::distance(nbFracVal.begin(), std::max_element(nbFracVal.begin(), nbFracVal.end())); // we get the most occuring value
-		if (nbFracVal[vl] == 0) // no decimal value => call median rule
-			vl = computeMedianSplittingValue(slub, i);
+		if (nbFracVal[vl] == 0) { // no decimal value => call median rule
+			//vl = computeMedianSplittingValue(slub, i);
+			//vl = floor(avgVal);
+			vl = computeRandomSplittingValue(slub, i, branchDec->ub[i]);
+		}
 	}
 
-	return vl;
+	return min(vl, maxUb - 1);
+}
+
+/*! \brief Computes most often fractional value of variable $x_i$ among the extreme points of the linear relaxation.
+ *
+ * \param slub SLUB. The slub that defines the part of the objective space to search in.
+ * \param i int. Index of the splitting variable.
+ * \return the index of the most often fractional variable, as an int.
+ */
+int LinearRelaxation::computeRandomSplittingValue(SLUB& slub, int i, int maxUb) {
+
+	int valSplit = -1;
+	int nbPts = 0;
+	int maxVal = branchDec->lb[i];
+	int minVal = branchDec->ub[i] - 1;
+
+	// get min & max val
+
+	std::list<Point*>::iterator pt;
+	double val;
+	for (pt = extrPoints.begin(); pt != extrPoints.end(); pt++) {
+		if (!(*pt)->is_ray() && (*pt)->get_nbVar() != 0) {
+			if (slub.dominated(*pt)) {
+				nbPts++;
+				val = (*pt)->get_preImage(i);
+				if (floor(val) > maxVal)
+					maxVal = floor(val);
+				if (floor(val) < minVal)
+					minVal = floor(val);
+				//std::cout << " " << val;
+			}
+		}
+	}
+
+	if (nbPts == 0) {
+		maxVal = branchDec->ub[i] - 1;
+		minVal = branchDec->lb[i];
+	}
+	
+	//srand(time(NULL)); // time(NULL)
+	valSplit = rand() % (maxVal - minVal + 1) + minVal;
+
+	//std::cout << " range : " << minVal << " , " << maxVal << "\n";
+
+	if (valSplit == branchDec->ub[i])
+		valSplit--;
+
+	return min(valSplit, maxUb - 1);
 }
 
 void LinearRelaxation::exportIteration() {
@@ -2016,27 +2254,652 @@ void LinearRelaxation::generateBox(std::vector<double> yI, std::vector<double> c
 	}
 }
 
-/*! \brief Write into stat the statistics about this LP-relax
- *
- * This function update the lpStat field of stat.
- * \param stat Statistics. The data structure that store statistics for the whole Branch and Bound
+/* \brief Clear all the cuts generated in the model used to comptue the linear relaxation.
  */
-//void LinearRelaxation::getStatistics(Statistics* statBB) {
-//
-//	statBB->lpSolved += stat.lpSolved;
-//	statBB->feasibilityCheckSolved += stat.feasibilityCheckSolved;
-//	statBB->dualBensonSolved += stat.dualBensonSolved;
-//	statBB->furthestFeasbilePointSolved += stat.furthestFeasbilePointSolved;
-//
-//	statBB->timeDualBenson += stat.timeDualBenson.CumulativeTime("sec");
-//	statBB->timeFeasibilityCheck += stat.timeFeasibilityCheck.CumulativeTime("sec");
-//	statBB->timeInitialization += stat.timeInitialization.CumulativeTime("sec");
-//	statBB->timeFurthestFeasiblePoint += stat.timeFurthestFeasiblePoint.CumulativeTime("sec");
-//	statBB->timeUpdatePolyhedron += stat.timeUpdatePolyhedron.CumulativeTime("sec");
-//
-//	//statBB->profiler += stat.profiler.CumulativeTime("sec");
-//	//std::cout << statBB->profiler << "\n";
-//}
+void LinearRelaxation::clearCuts() {
+	feasibilityCheck->clearCuts();
+}
+
+/*! \brief Add the cover cut described in cc to the model.
+ *
+ * \param cc vector of vector of int. Represent the cover cuts. Each row is a new cut, column 0 is the rhs, and the other columns are the indices of the variables to add to the cut.
+ */
+void LinearRelaxation::applyCoverCuts(std::vector<std::vector<int>>& cc) {
+	feasibilityCheck->applyCoverCuts(cc);
+}
+
+/*! \brief Class the indices of the variables from the most to the least fractional among the extreme points of the lower bound set.
+ *
+ * \param cc vector int. Indices are stored in this vector.
+ */
+void LinearRelaxation::computeFractionalProportion(std::vector<int>* I, SLUB& s) {
+
+	std::vector nbFrac = std::vector<int>(I->size(), 0); // count how many times each variable is fractional
+	std::list<Point*>::iterator y;
+	double val;
+
+	// compute the proportion of fractional extreme points for each variable
+
+	for (y = extrPoints.begin(); y != extrPoints.end(); y++) {
+		if (!(*y)->is_ray() && (*y)->get_nbVar() != 0 && s.dominated(*y)) { // if not a ray, has a pre-image, and is in the dominance cone of s
+			for (int i = 0; i < lp->get_n(); i++) {
+				val = (*y)->get_preImage(i);
+				if (val - trunc(val + 0.0000001) >= 0.0000001) { // variable is fractional for y
+					nbFrac[i]++;
+				}
+			}
+		}
+	}
+
+	// sort variables from most to least often fractional
+
+	int max, idx = -1;
+	for (int i = 0; i < lp->get_n(); i++) {
+		max = -1;
+		for (int i2 = 0; i2 < lp->get_n(); i2++) {
+			if (nbFrac[i2] > max) {
+				idx = i2;
+				max = nbFrac[i2];
+			}
+		}
+		(*I)[i] = idx;
+		nbFrac[idx] = -1;
+	}
+
+	// print
+
+	/*std::cout << " I : ";
+	for (int i = 0; i < lp->get_n(); i++) {
+		std::cout << (*I)[i] << " ";
+	}
+	std::cout << "\n";*/
+}
+
+std::vector<double> LinearRelaxation::getNadirPoint() {
+
+	std::list<Point*>::iterator y;
+	std::vector<double> yN(lp->get_p(), -1000000);
+
+	// calculation
+
+	for (y = extrPoints.begin(); y != extrPoints.end(); y++) {
+		if (!(*y)->is_ray()) {
+			for (int k = 0; k < lp->get_p(); k++) {
+				if (yN[k] < (*y)->get_objVector(k)) {
+					yN[k] = (*y)->get_objVector(k);
+				}
+			}
+		}
+	}
+
+	// print
+	//std::cout << " LP nadir point : ";
+	//for (int k = 0; k < lp->get_p(); k++) {
+		//std::cout << yN[k] << " ";
+	//}
+	//std::cout << "\n";
+
+	return yN;
+}
+
+/*! \brief Check for each free variable wether each extreme value occurs among extreme points of the lower bound set in the region described in bd. Values occuring are notified in h;
+ *
+ * \param bd BranchingDecisions*. A pointer to the branching decisions used for reference.
+ * \param h vector of vector of bool. If a variable take an extreme value, its corresponding cell is set to false.
+ */
+void LinearRelaxation::checkFeasibleValues(BranchingDecisions* bd, std::vector<std::vector<bool>>* h) {
+
+	std::list<Point*>::iterator y;
+	SLUB s = SLUB(bd->slub);
+
+	for (y = extrPoints.begin(); y != extrPoints.end(); y++) {
+		(*y)->becomesNonRefVarFix();
+		if (!(*y)->is_ray() && s.dominated(*y)) { // if y is in the region of the obj space described by s
+			//std::cout << " new point tested : ";
+			for (int i = 0; i < lp->get_n(); i++) {
+				//std::cout << (*y)->get_preImage(i) << " ";
+				if (bd->lb[i] != bd->ub[i]) { // if variable i is free
+					if ((*y)->get_preImage(i) == 0) {
+						(*h)[i][0] = false;
+						(*y)->becomesRefVarFix();
+					}
+					else if ((*y)->get_preImage(i) == 1) {
+						(*h)[i][1] = false;
+						(*y)->becomesRefVarFix();
+					}
+				}
+			}
+			//std::cout << "\n";
+		}
+	}
+
+}
+
+/* \brief Check whether new values for fixing variables should be tested afted variable i was fixed to v.
+ *
+ * \param toTest, vector of vector of bool. Where the values to check for each variables are recorded.
+ * \param int i. The index of the variable that was fixed.
+ * \param int v. The value to which x_i was fixed.
+ */
+void LinearRelaxation::updateFeasibleValues(std::vector<std::vector<bool>>* toTest, BranchingDecisions* bd, int i, int v) {
+
+	std::list<Point*>::iterator y;
+	int cptFeas = 0;
+
+	// reset ref pts
+	for (y = extrPoints.begin(); y != extrPoints.end(); y++) {
+		if ((*y)->isRefVarFix()) {
+			if ((*y)->get_preImage(i) == v) {
+				cptFeas++;
+			}
+			else {
+				(*y)->becomesNonRefVarFix();
+			}
+		}
+	}
+
+	// check values of variables
+	std::vector<int> cptr0(lp->get_n(), 0);
+	std::vector<int> cptr1(lp->get_n(), 0);
+	for (y = extrPoints.begin(); y != extrPoints.end(); y++) {
+		if ((*y)->isRefVarFix()) {
+			//(*y)->print();
+			for (int l = 0; l < lp->get_n(); l++) {
+				if ((*y)->get_preImage(l) == 0) {
+					cptr0[l]++;
+				}
+				else if ((*y)->get_preImage(l) == 1) {
+					cptr1[l]++;
+				}
+			}
+		}
+	}
+
+	// update tests to be performed
+	for (int l = 0; l < lp->get_n(); l++) {
+		if (l == 9) {
+			//std::cout << "after Lb set check: x9 in [" << bd->lb[l] << " , " << bd->ub[l] << "]\n";
+		}
+		if (bd->lb[l] != bd->ub[l]) {
+			if (!(*toTest)[l][0] && cptr0[l] == 0 && bd->lb[l] != 1) { // no extr pts has value 0 for x_l and x_l is not fixed to 1
+				(*toTest)[l][0] = true;
+				std::cout << " /!! we now need to test x[" << l << "] = 0\n";
+			}
+			if (!(*toTest)[l][1] && cptr1[l] == 0 && bd->ub[l] != 0) { // no extr pts has value 1 for x_l and x_l is not fixed to 0
+				(*toTest)[l][1] = true;
+				std::cout << " /!! we now need to test x[" << l << "] = 1\n";
+			}
+		}
+	}
+}
+
+/*! \brief Compute the index that violates the most often the branching decisions among the extreme points of the lower bound set.
+ *
+ * \param BranchingDecisions* newbd. A pointer to the branching decisions used for violation test.
+ * \return the index of the variable chosen, as an int.
+ */
+int LinearRelaxation::computeMostViolatingIndex(BranchingDecisions* newbd) {
+
+	int index = -1;
+	std::list<Point*>::iterator y;
+	std::vector<int> nbViolations(lp->get_n(), 0);
+	std::vector<bool> isViolated;
+
+	// compute the number of violations before branching
+	//for (y = extrPoints.begin(); y != extrPoints.end(); y++) {
+	//	if (!(*y)->is_ray()) { // we look at extreme points only, not rays
+	//		for (int i = 0; i < lp->get_n(); i++) {
+	//			if (newbd->lb[i] != newbd->ub[i]) { // we look at free variables only
+	//				if ((*y)->get_preImage(i) != newbd->lb[i]) nbViolations[i]++;
+	//				if ((*y)->get_preImage(i) != newbd->ub[i]) nbViolations[i]++;
+	//			}
+	//		}
+	//	}
+	//}
+	for (y = extrPoints.begin(); y != extrPoints.end(); y++) {
+		if (!(*y)->is_ray()) { // we look at extreme points only, not rays
+			for (int i = 0; i < lp->get_n(); i++) {
+				if (newbd->lb[i] != newbd->ub[i]) { // we look at free variables only
+					if (!(*y)->satisfyBranchingDecisions(newbd) || (*y)->get_preImage(i) != newbd->lb[i]) nbViolations[i]++;
+					if (!(*y)->satisfyBranchingDecisions(newbd) || (*y)->get_preImage(i) != newbd->ub[i]) nbViolations[i]++;
+				}
+			}
+		}
+	}
+
+	// get the most violating one
+	int maxVal = 0;
+	//std::cout << "\n new node : ";
+	for (int i = 0; i < lp->get_n(); i++) {
+		//std::cout << nbViolations[i] << " ";
+		if (nbViolations[i] > maxVal) {
+			index = i;
+			maxVal = nbViolations[i];
+		}
+	}
+
+	return index;
+}
+
+/* Get the minimal difference between the rhs of an hyperplane and the w.s. of local upper bound u using the normal vector of the hyperplane
+ * as the weigth vector.
+ *
+ * \param LocalUpperBound u. The local upper bound used for reference.
+ */
+double LinearRelaxation::getMinFacetGap(LocalUpperBound& u) {
+
+	std::list<Hyperplane*>::iterator f;
+	double minGap = 10000000;
+	double currentGap = 10000000;
+	std::vector<double> l(lp->get_p());
+
+	for (f = facets.begin(); f != facets.end(); f++) {
+		for (int k = 0; k < lp->get_p(); k++) {
+			l[k] = (*f)->get_normalVector(k);
+		}
+		currentGap = u.getWeightedSum(l) - (*f)->get_rhs();
+		if (currentGap < minGap) {
+			minGap = currentGap;
+		}
+	}
+
+	return minGap;
+}
+
+/* Retrieve the w.s. value of the extreme point with the smallest w.s. value, using weights l.
+ *
+ * \param vector of double, l. The weight vector.
+ */
+double LinearRelaxation::getSmallestWeightedSumValue(std::vector<double>& l) {
+
+	double wsMin = 1000000, wsVal;
+	std::list<Point*>::iterator y;
+
+	for (y = extrPoints.begin(); y != extrPoints.end(); y++) {
+		if (!(*y)->is_ray()) {
+			wsVal = (*y)->getWeightedSumValue(l);
+			if (wsVal < wsMin) {
+				wsMin = wsVal;
+			}
+		}
+	}
+
+	return wsMin;
+}
+
+/* Retrieve the variables that are not fixed and that takes at least once a fractional value among the extreme points of the LB set.
+ * If none takes a fractional value, returns the variables that take at least once different values.
+ * If no extreme point exists in the area defined by the subproblem, the set of all free variables is returned.
+ *
+ * \param isCandidate, vector of bool. True if variable i is candidate, false otherwise.
+ * \param BranchingDecision* bd. The branching decisions considered.
+ */
+void LinearRelaxation::getCandidateSet(std::vector<bool>& isCandidate, BranchingDecisions* bd) {
+
+	int n = isCandidate.size();
+	std::list<Point*>::iterator y;
+	SLUB s(bd->slub);
+
+	// search for free & decimal variables
+
+	//std::cout << "Stage 1 is trigered. ";
+	for (int i = 0; i < n; i++) {
+		isCandidate[i] = bd->ub[i] != bd->lb[i]; // check if it is a free variable
+		if (isCandidate[i]) { // if it is, search for fractional extreme points
+			isCandidate[i] = false;
+			y = extrPoints.begin();
+			while (!isCandidate[i] && y != extrPoints.end()) {
+				//(*y)->print(); std::cout << " vs "; s.print();
+				//std::cout << " domi : " << s.dominatedFix(*y) << "\n";
+				if (!(*y)->is_ray() && s.dominatedFix(*y)) {
+					if ((*y)->get_preImage(i) - trunc((*y)->get_preImage(i)) > EPS_INT) {
+						isCandidate[i] = true;
+					}
+				}
+				y++;
+			}
+
+		}
+	}
+
+	// if there is no candidate, search for the integer ones taking different values by looking at their average value
+	if (std::count(isCandidate.begin(), isCandidate.end(), true) == 0) {
+
+		//std::cout << "Stage 2 is trigered... ";
+		std::vector<double> avg(n, 0);
+		int nbPts = 0;
+
+		for (y = extrPoints.begin(); y != extrPoints.end(); y++) {
+			if (!(*y)->is_ray() && s.dominatedFix(*y)) {
+				for (int i = 0; i < n; i++) {
+					avg[i] += (*y)->get_preImage(i);
+				}
+				nbPts++;
+			}
+		}
+		for (int i = 0; i < n; i++) {
+			avg[i] /= double(nbPts);
+			isCandidate[i] = (bd->ub[i] != bd->lb[i]) && (avg[i] > EPS_INT && avg[i] - 1 < EPS_INT);
+		}
+
+		// if there is still no candidate, put all free variables as candidates
+		if (std::count(isCandidate.begin(), isCandidate.end(), true) == 0) {
+			
+			for (int i = 0; i < n; i++) {
+				isCandidate[i] = bd->ub[i] != bd->lb[i];
+			}
+			//std::cout << "Stage 3 is trigered !";
+
+		}
+	}
+	//std::cout << "\n";
+}
+
+void LinearRelaxation::getFractionalCandidateSet(std::vector<bool>& isCandidate, BranchingDecisions* bd) {
+
+	std::list<Point*>::iterator pt;
+	std::vector<int> counter(lp->get_n(), 0);
+	std::vector<double> avgValue(lp->get_n(), 0);
+	SLUB s(bd->slub);
+	double val;
+	int nbIncludedPoints = 0;
+	bool allInteger = true;
+	bool empty = true;
+
+	for (int i = 0; i < lp->get_n(); i++) isCandidate[i] = false;
+
+	//std::cout << "\n------- splitting -------\n";
+	for (pt = extrPoints.begin(); pt != extrPoints.end(); pt++) {
+		//(*pt)->print();
+		//std::cout << "\n";
+		(*pt)->becomesUnknownDominater();
+		// OnBoundingBox
+		if (!(*pt)->is_ray() && (*pt)->get_nbVar() != 0) { // last condition happen if timer threshold is reached during LB computation
+			//(*pt)->printPreImage();
+			if (s.dominated(*pt)) {
+				//std::cout << " is considered";
+				(*pt)->becomesDominater();
+				nbIncludedPoints++;
+				empty = false;
+				for (int i = 0; i < lp->get_n(); i++) {
+					if (bd->ub[i] != bd->lb[i]) {
+						val = (*pt)->get_preImage(i);
+						if (val - trunc(val + 0.0000001) >= 0.0000001) { // for numerical instabilities
+							counter[i]++;
+							allInteger = false;
+						}
+						avgValue[i] += val;
+					}
+				}
+			}
+			else {
+				(*pt)->becomesNonDominater();
+			}
+			//std::cout << "\n";
+		}
+	}
+
+	/*std::cout << " Fractionality of variables: \n";
+	for (int i = 0; i < lp->get_n(); i++) {
+		std::cout << i << " -> " << counter[i] << "\n";
+	}*/
+
+	int index = -1;
+	if (!allInteger) { // if there exists at least one fractional variable in one of the extreme points
+		//std::cout << "here\n";
+		int max = 0;
+		for (int i = 0; i < lp->get_n(); i++) {
+			if (counter[i] > max) {
+				max = counter[i];
+			}
+		}
+		for (int i = 0; i < lp->get_n(); i++) {
+			//if (counter[i] == max) std::cout << "check\n";
+			if (counter[i] == max) isCandidate[i] = true;
+		}
+	}
+	else if (nbIncludedPoints >= 2) { // if there exists at least two extreme point (integer only)  // !empty
+		double minDiff = 10000;
+		double refVal = 0;
+		for (int i = 0; i < lp->get_n(); i++) {
+			if (bd->ub[i] != bd->lb[i]) {
+				//refVal = double(bd->ub[i] - bd->lb[i]) / 2;
+				////refVal = (branchDec->ub[i] - branchDec->lb[i]) / 2;
+				//avgValue[i] = avgValue[i] / nbIncludedPoints;
+				//avgValue[i] = avgValue[i] - trunc(avgValue[i]);
+				////std::cout << i << " -> " << avgValue[i] << " vs " << refVal << " ";
+				//if (abs(avgValue[i] - refVal) < minDiff) {
+				//	index = i;
+				//	minDiff = abs(avgValue[i] - 0.5);
+				//	//std::cout << " => minDiff = " << minDiff;
+				//}
+				////std::cout << "\n";
+				avgValue[i] = avgValue[i] / nbIncludedPoints;
+				if (avgValue[i] > EPS_INT && avgValue[i] < 1 - EPS_INT) {
+					isCandidate[i] = true;
+				}
+			}
+		}
+	}
+	else { // if there is no extreme point at all, or a unique integer extreme point
+		for (int i = 0; i < lp->get_n(); i++) {
+			if (bd->ub[i] != bd->lb[i]) {
+				isCandidate[i] = true;
+			}
+		}
+	}
+
+	/*if (index == -1) {
+		std::cout << "\n -> at iteration " << iteration << "\n";
+		std::cout << "stopere plz";
+		throw std::string("Error: invalid splitting index in ComputeMostOftenFractionalIndex");
+	}*/
+
+	std::cout << "Candidate list : ";
+	for (int i = 0; i < lp->get_n(); i++) {
+		if (isCandidate[i]) std::cout << i << " ";
+	}
+	std::cout << "\n";
+
+	//std::cout << "index is: " << index << "\n\n";
+
+	//return index;
+}
+
+bool LinearRelaxation::filterNdLubs(std::list<LocalUpperBound*>& lubDomi, Hyperplane* h) {
+
+	std::list<LocalUpperBound*>::iterator u, uNext;
+	
+	u = lubDomi.begin();
+	uNext = u;
+	while (u != lubDomi.end()) {
+		u = uNext;
+		uNext++;
+		//if ()
+	}
+
+	return lubDomi.size() == 0;
+}
+
+bool LinearRelaxation::takeValue(BranchingDecisions* bd, int i, int v) {
+	
+	bool valueFound = false;
+	bool feasible;
+	std::list<Point*>::iterator y = extrPoints.begin();
+	SLUB s = SLUB(bd->slub);
+	int i2;
+
+	while (!valueFound && y != extrPoints.end()) {
+
+		if (!(*y)->is_ray() && (*y)->get_preImage(i) == v && s.dominated(*y)) {
+
+			feasible = true;
+			i2 = 0;
+			while (feasible && i2 < lp->get_n()) {
+				if (!((*y)->get_preImage(i2) >= bd->lb[i2] && (*y)->get_preImage(i2) <= bd->ub[i])) {
+					feasible = false;
+				}
+				i2++;
+			}
+
+			if (feasible) {
+				valueFound = true;
+				//std::cout << "  x[" << i << "] take value " << v << " in ";
+				//(*y)->printPreImage();
+			}
+		}
+		y++;
+	}
+
+	return valueFound;
+}
+
+std::vector<double> LinearRelaxation::getAverageNormalVector(BranchingDecisions* bd) {
+
+	std::vector<double> avgNV(lp->get_p(), 0);
+	SLUB s = SLUB(bd->slub);
+	std::list<Hyperplane*>::iterator h;
+	std::list<Point*>::iterator y;
+	std::list<Point*>* defPts;
+	bool facetInSubpb;
+	int nbFacetsInSubpb = 0;
+
+	for (h = facets.begin(); h != facets.end(); h++) {
+		facetInSubpb = false;
+		defPts = (*h)->get_defPts();
+		for (y = defPts->begin(); y != defPts->end(); y++) {
+			if (s.strictlyDominated(*y)) {
+				facetInSubpb = true;
+			}
+		}
+
+		if (facetInSubpb) {
+			for (int k = 0; k < lp->get_p(); k++) {
+				avgNV[k] += (*h)->get_normalVector(k);
+			}
+			nbFacetsInSubpb++;
+		}
+	}
+
+	if (true || nbFacetsInSubpb == 0) {
+		for (int k = 0; k < lp->get_p(); k++) {
+			avgNV[k] = 1;
+		}
+	}
+	else {
+		for (int k = 0; k < lp->get_p(); k++) {
+			avgNV[k] /= nbFacetsInSubpb;
+		}
+	}
+
+	return avgNV;
+}
+
+double LinearRelaxation::getPercentageIntegrality() {
+
+	std::list<Point*>::iterator y;
+	double pct = 0;
+	int nbExtrPts = 0, nbInt = 0;
+
+	if (extrPoints.size() != 0) {
+
+		for (y = extrPoints.begin(); y != extrPoints.end(); y++) {
+			if (!(*y)->is_ray()) {
+				if ((*y)->isInteger()) { //  && (*y)->satisfyBranchingDecisions(branchDec)
+					nbInt++;
+				}
+				nbExtrPts++;
+			}
+		}
+
+		pct = double(nbInt) / double(nbExtrPts);
+	}
+	else {
+		pct = -1; // pct to -1 if we can't decide => don't change branching rule
+	}
+	//std::cout << pct << "% of the LB set is integer\n";
+
+	return pct;
+}
+
+double LinearRelaxation::getPercentageFeasibility() {
+
+	std::list<Point*>::iterator y;
+	double pct = 0;
+	int nbExtrPts = 0, nbFeas = 0;
+
+	if (extrPoints.size() != 0) {
+
+		for (y = extrPoints.begin(); y != extrPoints.end(); y++) {
+			if (!(*y)->is_ray()) {
+				if ((*y)->satisfyBranchingDecisions(branchDec)) {
+					nbFeas++;
+				}
+				nbExtrPts++;
+			}
+		}
+
+		pct = double(nbFeas) / double(nbExtrPts);
+	}
+	else {
+		pct = -1; // pct to -1 if we can't decide => don't change branching rule
+	}
+	//std::cout << 100 * pct << "% of the LB set is still feasible ( " << nbFeas << " / " << nbExtrPts << " )\n";
+
+	return pct;
+}
+
+void LinearRelaxation::checkViolatingCut() {
+
+	int s;
+
+	for (std::list<Point*>::iterator y = extrPoints.begin(); y != extrPoints.end(); y++) {
+		if (!(*y)->is_ray()) {
+			for (int k = 0; k < lp->get_p(); k++) {
+
+				s = branchDec->slub[k];
+				for (int i = 0; i < lp->get_n(); i++) {
+					if ((*y)->get_preImage(i) >= 1 - EPS_INT) {
+						s -= int((*y)->get_preImage(i));
+					}
+				}
+				for (int i = 0; i < lp->get_n(); i++) {
+					if ((*y)->get_preImage(i) < 1 - EPS_INT && (*y)->get_preImage(i) > EPS_INT) {
+						if (lp->get_objective(k, i) > s) {
+							std::cout << " cover cut possible on objective " << k << "\n";
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+void LinearRelaxation::checkViolatingCut(BranchingDecisions* bd) {
+
+	int s;
+
+	for (std::list<Point*>::iterator y = extrPoints.begin(); y != extrPoints.end(); y++) {
+		if (!(*y)->is_ray()) {
+			for (int k = 0; k < lp->get_p(); k++) {
+
+				s = bd->slub[k];
+				for (int i = 0; i < lp->get_n(); i++) {
+					if ((*y)->get_preImage(i) >= 1 - EPS_INT) {
+						s -= int((*y)->get_preImage(i));
+					}
+				}
+				for (int i = 0; i < lp->get_n(); i++) {
+					if ((*y)->get_preImage(i) < 1 - EPS_INT && (*y)->get_preImage(i) > EPS_INT) {
+						if (lp->get_objective(k, i) > s) {
+							std::cout << " cover cut possible on objective " << k << "\n";
+						}
+					}
+				}
+			}
+		}
+	}
+}
 
 /* ==========================================================
 		Getters
@@ -2395,7 +3258,7 @@ void LinearRelaxation::computeFull() {
 
 					if ((*currentPoint)->isNew() || (*currentPoint)->get_nbVar() == 0) {
 						S->timeFeasibilityCheck.StartTimer();
-						feasible = feasibilityCheck->solve(*(*currentPoint)->get_objVector());
+						feasible = feasibilityCheck->solve(*(*currentPoint)->get_objVector(), iteration);
 						S->timeFeasibilityCheck.StopTimer();
 						std::cout << " Cplex called on : ";
 						(*currentPoint)->print();
@@ -2408,7 +3271,7 @@ void LinearRelaxation::computeFull() {
 						}
 						else { // check for alternative pre-images
 							S->timeFeasibilityCheck.StartTimer();
-							feasible = feasibilityCheck->solve(*(*currentPoint)->get_objVector());
+							feasible = feasibilityCheck->solve(*(*currentPoint)->get_objVector(), iteration);
 							S->timeFeasibilityCheck.StopTimer();
 							std::cout << " Cplex called on : ";
 							(*currentPoint)->print();
@@ -2726,4 +3589,15 @@ void LinearRelaxation::updatePolyhedron2(Hyperplane* H, Point* ptsDiscardedByH) 
 		std::cout << "out";
 	}
 	call++; // go to next iteration
+}
+
+
+
+
+int LinearRelaxation::get_numberFacets() {
+	return facets.size();
+}
+
+int LinearRelaxation::get_numberVertices() {
+	return extrPoints.size();
 }

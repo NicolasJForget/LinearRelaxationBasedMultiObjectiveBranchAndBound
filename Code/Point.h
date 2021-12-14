@@ -13,6 +13,7 @@
 #include <math.h>
 
 class Hyperplane;
+class FeasibilityCheckModel;
 
 class Point
 {
@@ -39,6 +40,7 @@ private:
 	bool modified; //!< true if the point has been modified or used for computing a new point at a given of benson's algorithm
 	std::list<Point*> C; //!< list of points related to the modifications (linked to modified)
 	int domiSlub; //!< true if it is dominated by the current slub. -1 if unknown, 0 if non-dominated, 1 if dominated
+	int refVarFix; //!< true if the point is a reference point for variable fixing, i.e. feasible for the current branching decisions.
 	//int directionRay; //!< unbounded direction if the point is a ray
 
 public:
@@ -390,6 +392,10 @@ public:
 	 */
 	void becomesCplexChecked();
 
+	void becomesRefVarFix();
+	void becomesNonRefVarFix();
+	bool isRefVarFix();
+
 	/*! \brief Check whether this point has been checked by cplex in this iteration.
 	 *
 	 * \return true if this point has been checked by cplex, false otherwise.
@@ -452,10 +458,16 @@ public:
 	 * This function looks first at the decision space and check whether the last split variable is within the bounds defined
 	 * in the branching decision. Then, it checks whether the point is in the objective branching cone defined in the branching
 	 * decisions.
-	 * \param BD branchingDecisions. A pointer to the branching decisions used for comparison.
+	 * \param BD BranchingDecisions. A pointer to the branching decisions used for comparison.
 	 * \return true if the point is feasible given the branching decisions, false otherwise.
 	 */
 	bool satisfyBranchingDecisions(BranchingDecisions* BD);
+
+	/* Retrieve the w.s. value of the point, with weights l.
+	 *
+	 * \param vector of double, l. The weight vector.
+	 */
+	double getWeightedSumValue(std::vector<double>& l);
 
 	bool isNumericallyOnHyperplane(Hyperplane* H);
 

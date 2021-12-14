@@ -10,14 +10,14 @@
 
   * \param z std::vector of double. It defines the objective vector of the new point.
   */
-Point::Point(std::vector<double> const& z) : objVector(z), preImage(0), adjList(0), activeHyperplanes(0), discarded(false), onBoundingBox(false), feasible(false), degenerate(true), integer(false), copy(NULL), integratedInUB(false), newPoint(true), checkpoint(false), isCplexChecked(false), isRay(false), unboundedDimension(-1), hasRay(z.size(), false), visited(false), modified(false), C(0), domiSlub(-1) {};
+Point::Point(std::vector<double> const& z) : objVector(z), preImage(0), adjList(0), activeHyperplanes(0), discarded(false), onBoundingBox(false), feasible(false), degenerate(true), integer(false), integratedInUB(false), newPoint(true), checkpoint(false), isCplexChecked(false), copy(NULL), isRay(false), unboundedDimension(-1), hasRay(z.size(), false), visited(false), modified(false), C(0), domiSlub(-1), refVarFix(false) {}
 
 /*! \brief Constructor with a known objective vector.
  *
  * \param z std::vector of double. It defines the objective vector of the new point.
  * \param ray bool. True if the point is an extreme ray, false otherwise.
  */
-Point::Point(std::vector<double> const& z, int k) : objVector(z), preImage(0), adjList(0), activeHyperplanes(0), discarded(false), onBoundingBox(false), feasible(false), degenerate(true), integer(false), copy(NULL), integratedInUB(false), newPoint(true), checkpoint(false), isCplexChecked(false), isRay(true), unboundedDimension(k), hasRay(z.size(), false), visited(false), modified(false), C(0), domiSlub(-1) {};
+Point::Point(std::vector<double> const& z, int k) : objVector(z), preImage(0), adjList(0), activeHyperplanes(0), discarded(false), onBoundingBox(false), feasible(false), degenerate(true), integer(false), integratedInUB(false), newPoint(true), checkpoint(false), isCplexChecked(false), copy(NULL), isRay(true), unboundedDimension(k), hasRay(z.size(), false), visited(false), modified(false), C(0), domiSlub(-1), refVarFix(false) {}
 
 /*! \brief Construct the point located at the intersection of the edge defined by u and v and hyperplane H.
  *
@@ -28,7 +28,7 @@ Point::Point(std::vector<double> const& z, int k) : objVector(z), preImage(0), a
  * \param lambda double. Defines the location of the intesection on the edge.
  * \param H Hyperplane*. A pointer to the hyperplane used to compute the intersection.
  */
-Point::Point(Point* u, Point* v, double lambda, Hyperplane* H) : objVector(u->get_nbObj()), preImage(0), adjList(0), activeHyperplanes(0), discarded(false), onBoundingBox(false), feasible(false), degenerate(true), integer(false), copy(NULL), integratedInUB(false), newPoint(true), checkpoint(false), isCplexChecked(false), isRay(false), unboundedDimension(-1), hasRay(v->get_nbObj(), false), visited(false), modified(false), C(0), domiSlub(-1) {
+Point::Point(Point* u, Point* v, double lambda, Hyperplane* H) : objVector(u->get_nbObj()), preImage(0), adjList(0), activeHyperplanes(0), discarded(false), onBoundingBox(false), feasible(false), degenerate(true), integer(false), integratedInUB(false), newPoint(true), checkpoint(false), isCplexChecked(false), copy(NULL), isRay(false), unboundedDimension(-1), hasRay(v->get_nbObj(), false), visited(false), modified(false), C(0), domiSlub(-1), refVarFix(false) {
 
     // compute the coordinates
 
@@ -66,7 +66,7 @@ Point::Point(Point* u, Point* v, double lambda, Hyperplane* H) : objVector(u->ge
     }
     activeHyperplanes.push_back(H);
     H->addVertex(this);
-};
+}
 
 /*! \brief Construct the point located at the intersection of the edge defined by u and v and hyperplane H.
  *
@@ -77,7 +77,7 @@ Point::Point(Point* u, Point* v, double lambda, Hyperplane* H) : objVector(u->ge
  * \param lambda double. Defines the location of the intesection on the edge.
  * \param H Hyperplane*. A pointer to the hyperplane used to compute the intersection.
  */
-Point::Point(Point* u, Point* v, std::vector<double> coord, Hyperplane* H) : objVector(u->get_nbObj()), preImage(0), adjList(0), activeHyperplanes(0), discarded(false), onBoundingBox(false), feasible(false), degenerate(true), integer(false), copy(NULL), integratedInUB(false), newPoint(true), checkpoint(false), isCplexChecked(false), isRay(false), unboundedDimension(-1), hasRay(v->get_nbObj(), false), visited(false), modified(false), C(0) {
+Point::Point(Point* u, Point* v, std::vector<double> coord, Hyperplane* H) : objVector(u->get_nbObj()), preImage(0), adjList(0), activeHyperplanes(0), discarded(false), onBoundingBox(false), feasible(false), degenerate(true), integer(false), integratedInUB(false), newPoint(true), checkpoint(false), isCplexChecked(false), copy(NULL), isRay(false), unboundedDimension(-1), hasRay(v->get_nbObj(), false), visited(false), modified(false), C(0), refVarFix(false) {
 
     // compute the coordinates
 
@@ -115,11 +115,11 @@ Point::Point(Point* u, Point* v, std::vector<double> coord, Hyperplane* H) : obj
     }
     activeHyperplanes.push_back(H);
     H->addVertex(this);
-};
+}
 
 /*! \brief Constructor.
 */
-Point::Point() : objVector(0), preImage(0), adjList(0), activeHyperplanes(0), discarded(false), onBoundingBox(false), feasible(false), degenerate(true), integer(false), copy(NULL), integratedInUB(false), newPoint(true), checkpoint(false), isCplexChecked(false), isRay(false), unboundedDimension(-1), hasRay(false), visited(false), modified(false), C(0) {};
+Point::Point() : objVector(0), preImage(0), adjList(0), activeHyperplanes(0), discarded(false), onBoundingBox(false), feasible(false), degenerate(true), integer(false), integratedInUB(false), newPoint(true), checkpoint(false), isCplexChecked(false), copy(NULL), isRay(false), unboundedDimension(-1), hasRay(false), visited(false), modified(false), C(0), refVarFix(false) {}
 
 /* ==========================================================
 		Regular methods
@@ -1124,7 +1124,7 @@ void Point::printPreImage() {
     for (int i = 0; i < s - 1; i++) {
         std::cout << preImage[i] << " , ";
     }
-    std::cout << preImage[s - 1] << " ) ";
+    std::cout << preImage[s - 1] << " )\n";
 }
 
 /*! \brief Check whether the point is already discarded.
@@ -1170,11 +1170,11 @@ bool Point::isInteger() {
         //    ++i;
         //}
         for (int i = 0; i < n; i++) {
-            if (preImage[i] - floor(preImage[i]) <= 0.00000001) { // epsilons for numerical instabilities
+            if (preImage[i] - floor(preImage[i]) <= EPS_INT) { // epsilons for numerical instabilities // 0.00000001
                 //integer = false;
                 preImage[i] = floor(preImage[i]);
             }
-            else if (preImage[i] - floor(preImage[i]) >= 0.999999999) {
+            else if (preImage[i] - floor(preImage[i]) >= 1 - EPS_INT) { // 0.999999999
                 //integer = false;
                 preImage[i] = floor(preImage[i]) + 1;
             }
@@ -1267,6 +1267,20 @@ bool Point::satisfyBranchingDecisions(BranchingDecisions* BD) {
     }
 
     return fsb;
+}
+
+/* Retrieve the w.s. value of the point, with weights l.
+ *
+ * \param vector of double, l. The weight vector.
+ */
+double Point::getWeightedSumValue(std::vector<double>& l) {
+
+    double val = 0;
+    for (int k = 0; k < objVector.size(); k++) {
+        val += l[k] * objVector[k];
+    }
+
+    return val;
 }
 
 /*! \brief Check whether the point is significantly close to y.
@@ -1999,6 +2013,18 @@ void Point::becomesNonDominater() {
 
 void Point::becomesUnknownDominater() {
     domiSlub = -1;
+}
+
+void Point::becomesRefVarFix() {
+    refVarFix = true;
+}
+
+void Point::becomesNonRefVarFix() {
+    refVarFix = false;
+}
+
+bool Point::isRefVarFix() {
+    return refVarFix;
 }
 
  /* ==========================================================

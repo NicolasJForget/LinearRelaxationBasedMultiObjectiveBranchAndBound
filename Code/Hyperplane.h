@@ -189,5 +189,6 @@ public:
 	bool is_new();
 	void becomes_new();
 	void becomes_old();
+	std::vector<double>* getNormalVector();
 };
 

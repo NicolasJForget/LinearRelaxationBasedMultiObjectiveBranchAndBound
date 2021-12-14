@@ -90,7 +90,7 @@ double CumulativeTime(std::string unit) const {
 * \see StartTimer
 * \see StopTimer
 */
-double ElapsedTime() const { return elapsedT; }
+nanotime_t ElapsedTime() const { return elapsedT; } // double
 
 
 /** Return the time between last \code StartTimer() and \code StopTimer() call.
@@ -137,7 +137,7 @@ static nanotime_t GetNanoTime(void) {
     QueryPerformanceFrequency(&frequency);
 
     /* Convert to nanoseconds */
-    return 1.0e9 * time_var.QuadPart / frequency.QuadPart;
+    return nanotime_t(1.0e9 * time_var.QuadPart / frequency.QuadPart);
 }
 #elif defined(__MACH__) || defined(__APPLE__)
 /* see http://developer.apple.com/library/mac/#qa/qa2004/qa1398.html */

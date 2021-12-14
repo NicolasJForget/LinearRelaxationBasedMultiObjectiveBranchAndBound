@@ -6,7 +6,9 @@
 
 /*! \brief Default constructor of a solution.
  */
-Solution::Solution() : variableVector(0), objectiveVector(0), dominated(false) {}
+Solution::Solution() : variableVector(0), objectiveVector(0), dominated(false), cpuCreation(0) {}
+
+Solution::Solution(std::vector<int>& y) : variableVector(0), objectiveVector(y), dominated(false), cpuCreation(0) {}
 
 /*! \brief Construct a solution from an extreme point of the LinearRelaxation
  *
@@ -14,7 +16,7 @@ Solution::Solution() : variableVector(0), objectiveVector(0), dominated(false) {
  * objective vector.
  * \param pts Point. The point the solution is created from.
  */
-Solution::Solution(Point& pts, MathematicalModel* lp) : dominated(false) {
+Solution::Solution(Point& pts, MathematicalModel* lp) : dominated(false), cpuCreation(0) {
 
     // fill solution vector
     //int n = pts.get_nbVar();
@@ -39,6 +41,44 @@ Solution::Solution(Point& pts, MathematicalModel* lp) : dominated(false) {
     std::cout << " and current point is ";
     print();
     std::cout << "\n";*/
+}
+
+Solution::Solution(BranchingDecisions* bd, MathematicalModel* lp) : dominated(false), cpuCreation(0) {
+
+    // fill solution vector
+    int n = lp->get_n();
+    variableVector = std::vector<int>(n);
+    for (int i = 0; i < n; i++) {
+        variableVector[i] = bd->lb[i];
+    }
+
+    // fill objective vector
+    int p = lp->get_p();
+    objectiveVector = std::vector<int>(p);
+    for (int k = 0; k < p; k++) {
+        for (int i = 0; i < n; i++) {
+            objectiveVector[k] += bd->lb[i] * lp->get_objective(k, i);//(int)round(pts.get_preImage(i) * lp->get_objective(k, i));;
+        }
+    }
+}
+
+Solution::Solution(std::vector<double>& y, MathematicalModel* lp) : dominated(false), cpuCreation(0) {
+
+    // fill solution vector
+    int n = lp->get_n();
+    variableVector = std::vector<int>(n);
+    for (int i = 0; i < n; i++) {
+        variableVector[i] = y[i];
+    }
+
+    // fill objective vector
+    int p = lp->get_p();
+    objectiveVector = std::vector<int>(p);
+    for (int k = 0; k < p; k++) {
+        for (int i = 0; i < n; i++) {
+            objectiveVector[k] += y[i] * lp->get_objective(k, i);//(int)round(pts.get_preImage(i) * lp->get_objective(k, i));;
+        }
+    }
 }
 
 /* ==========================================================
@@ -80,11 +120,13 @@ void Solution::print() {
         std::cout << objectiveVector[objectiveVector.size() - 1] << " )\n";
 
         // pre-img
-        std::cout << "\n   -> ( ";
-        for (int i = 0; i < variableVector.size() - 1; i++) {
-            std::cout << variableVector[i] << " , ";
+        if (variableVector.size() != 0) {
+            std::cout << "\n   -> ( ";
+            for (int i = 0; i < variableVector.size() - 1; i++) {
+                std::cout << variableVector[i] << " , ";
+            }
+            std::cout << variableVector[variableVector.size() - 1] << " )\n";
         }
-        std::cout << variableVector[variableVector.size() - 1] << " )\n";
     }
     else {
         std::cout << " xxx \n";
@@ -97,6 +139,56 @@ void Solution::print() {
  */
 void Solution::discard() {
     dominated = true;
+}
+
+bool Solution::isFeasible(MathematicalModel* lp) {
+
+    bool feasible = true;
+    int j = 0, lhs;
+
+    while (feasible && j < lp->get_m()) {
+        
+        // compute left-hand side of cte
+
+        lhs = 0;
+        for (int i = 0; i < lp->get_n(); i++) {
+            lhs += variableVector[i] * lp->get_constraint(j, i);
+        }
+
+        // check with the rhs of the constraint
+
+        if (lp->get_signCte(j) == 0) { // >= cte
+            if (lhs < lp->get_rhs(j)) feasible = false;
+        }
+        else if (lp->get_signCte(j) == 1) { // <= cte
+            if (lhs > lp->get_rhs(j)) feasible = false;
+        }
+        else if (lp->get_signCte(j) == 2) { // == cte
+            if (lhs != lp->get_rhs(j)) feasible = false;
+        }
+
+        j++;
+    }
+
+    return feasible;
+}
+
+
+
+void Solution::setCpu(double t) {
+    cpuCreation = t;
+}
+
+bool Solution::isEqual(Solution* y) {
+
+    bool equal = true;
+    for (int k = 0; k < objectiveVector.size(); k++) {
+        if (y->get_objVector(k) != objectiveVector[k]) {
+            equal = false;
+        }
+    }
+
+    return equal;
 }
 
 /* ==========================================================
@@ -114,10 +206,24 @@ int Solution::get_objVector(int obj) {
     return objectiveVector[obj];
 }
 
+/*! \brief Returns the value of variable x_i.
+ *
+ * \param i integer. The index of the variable to look at.
+ * \return the value of this variable, as a double.
+ */
+int Solution::get_preImage(int i) {
+    return variableVector[i];
+}
+
 /*! \brief Checks whether the solution is discarded.
  *
  * \return true if the solution is discarded, false otherwise.
  */
 bool Solution::isDiscarded() {
     return dominated;
+}
+
+
+double Solution::getCpu() {
+    return cpuCreation;
 }

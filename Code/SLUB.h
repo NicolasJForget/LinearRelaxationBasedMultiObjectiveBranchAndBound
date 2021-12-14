@@ -27,6 +27,8 @@ public:
 	 */
 	SLUB(LocalUpperBound& lub);
 
+	SLUB(std::vector<int>& y);
+
 	/*! \brief Constructor for an empty slub in dimension p.
 	 *
 	 * This function creates a slub in dimension p with the value INT_MIN for each component.
@@ -65,9 +67,20 @@ public:
 	 * \return true if this slub is dominated by the point pts, i.e. pts is located in the cone defined by this SLUB.
 	 */
 	bool dominated(Point* pts);
+	bool dominated(LocalUpperBound& u);
+	bool strictlyDominated(Point* pts);
+	bool dominatedFix(Point* pts);
 
 	/* \brief Print the slub
 	*/
 	void print();
+
+	/*! \brief Compute the distance between this SLUB and s.
+	 *
+	 * This function computes the euclidian distance between the two SLUBs.
+	 * \param s SLUB*. The SLUB used for comparison.
+	 * \return the distance, as a double.
+	 */
+	double distance(SLUB* s);
 };
 

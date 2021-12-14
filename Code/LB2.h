@@ -8,14 +8,17 @@
 #include <stdlib.h>
 #include <list>
 #include <algorithm>
+#include <ctime>
+#include <cstdlib>
+#include <vector>
 #include "Model.h"
 #include "Hyperplane.h"
-#include <vector>
 #include "Point.h"
 #include "UB.h"
 #include "GlobalConstants.h"
 #include "Stat.h"
 #include "SLUB.h"
+#include "timer.hpp"
 
 
 class LowerBoundSet {
@@ -34,6 +37,8 @@ public:
 	 */
 	LowerBoundSet(MathematicalModel* lp, BranchingDecisions* branch);
 
+	virtual ~LowerBoundSet();
+
 	/*! \brief Return the current status of the lower bound set.
 	 *
 	 * This function returns the current status of the lower bound set. See GlobalConstants.h for the possible status.
@@ -46,7 +51,7 @@ public:
 	 * This function will be implemented for each lower bound set in the subclasses. If the program enters in this compute(),
 	 * it throws a message.
 	 */
-	virtual void compute();
+	virtual void compute(UpperBoundSet* U, std::list<LocalUpperBound*> lubDomi);
 
 	/*! \brief A virtual function, to call the correct computation.
 	 *
@@ -89,7 +94,8 @@ public:
 	 * \param param Parameters. Used to check whether all the local upper bounds have to be tested.
 	 * \param ndLub list of LocalUpperBound. List of ids of the local upper bounds known as non-dominated by this LB set.
 	 */
-	virtual void applyDominanceTest(UpperBoundSet& U, Parameters* param, std::list<int>& ndLub);
+	virtual void applyDominanceTest(UpperBoundSet& U, Parameters* param, std::list<int>& ndLub, std::list<LocalUpperBound*>* domiLub);
+
 
 	/*! \brief A virtual function that checks whether this lower bound set the super local upper bound a point y.
 	 *
@@ -145,6 +151,7 @@ private:
 	int nbIterations;
 	//LPRelaxStat stat;
 	int call; //!< for debug purpose - number of calls to lb set solved so far
+	//int iteration;
 	Statistics* S;
 
 public:
@@ -154,7 +161,7 @@ public:
 	 * This functions destroy the linear relaxation. It in particular desallocates all the points and hyperplanes, which are
 	 * specific to this lower bound set, unlike the Cplex models.
 	 */
-	~LinearRelaxation();
+	virtual ~LinearRelaxation();
 
 	/*! \brief Default constructor of a linear relaxation, with models built externally
 	 *
@@ -169,7 +176,7 @@ public:
 	 * \param branchingDec BranchingDecisions. The data structure that describes the branching decisions to apply to this LB set.
 	 * \param S Statistics*. A pointer to the statistics of the BB
 	 */
-	LinearRelaxation(MathematicalModel* lp, WeightedSumModel* ws, FeasibilityCheckModel* feas, DualBensonModel* db, FurthestFeasiblePointModel* bvp, BranchingDecisions* branch, Statistics* S);
+	LinearRelaxation(MathematicalModel* lp, WeightedSumModel* ws, FeasibilityCheckModel* feas, DualBensonModel* db, FurthestFeasiblePointModel* bvp, BranchingDecisions* branch, Statistics* S, Parameters* param);
 
 	/*! \brief Default constructor of a linear relaxation, with models built internally.
 	 *
@@ -180,7 +187,7 @@ public:
 	 * \param branchingDec BranchingDecisions. The data structure that describes the branching decisions to apply to this LB set.
 	 * \param S Statistics*. A pointer to the statistics of the BB
 	 */
-	LinearRelaxation(MathematicalModel* lp, BranchingDecisions* branch, Statistics* S);
+	LinearRelaxation(MathematicalModel* lp, BranchingDecisions* branch, Statistics* S, Parameters* param);
 
 	/*! \brief The copy constructor for a linear relaxation
 	*
@@ -191,7 +198,7 @@ public:
 	 * \param LPrelax LinearRelaxation. The LinearRelaxation this object is a copy of.
 	 * \param branchingDec BranchingDecisions. The data structure that describes the branching decisions to apply to this LB set.
 	 */
-	LinearRelaxation(LinearRelaxation* LPrelax, BranchingDecisions* branch);
+	LinearRelaxation(LinearRelaxation* LPrelax, BranchingDecisions* branch, Parameters* param);
 
 
 	/*! \brief Initialise the linear relaxation by building a simplex that contains it.
@@ -213,7 +220,7 @@ public:
 	 * This function computes the linear relaxation by performing steps from Benson's outer approximation algorithm.
 	 * It assumes that it has been initialized by a polyhedron that is an outer approximation of the lienar relaxation.
 	 */
-	virtual void compute();
+	virtual void compute(UpperBoundSet* U, std::list<LocalUpperBound*> lubDomi);
 
 	/*! \brief This function computes the linear relaxation
 	 *
@@ -317,7 +324,7 @@ public:
 	 * \param U UpperBoundSet. The upper bound set used to do the dominance test.
 	 * \param param Parameters. Used to check whether all the local upper bounds have to be tested.
 	 */
-	virtual void applyDominanceTest(UpperBoundSet& U, Parameters* param, std::list<int>& ndLub);
+	virtual void applyDominanceTest(UpperBoundSet& U, Parameters* param, std::list<int>& ndLub, std::list<LocalUpperBound*>* domiLub);
 
 	/*! \brief A virtual function that checks whether this lower bound set the super local upper bound a point y.
 	 *
@@ -341,6 +348,25 @@ public:
 	 */
 	int computeMostOftenFractionalIndex(SLUB& slub);
 
+	/*! \brief Computes the index of the most often fractional variable among the extreme points.
+	 *
+	 * This functions returns the index of the most often fractional variable in the lower bound set located in the area
+	 * defined by the super local upper bound slub. This is done by checking each extreme point that dominates slub.
+	 * If there is no fractional variable, it returns the index of the most fractional in average (i.e. avg value closest
+	 * to 0.5). If there is no point in the given area, it returns the index of the first free variable it finds.
+	 * \param slub SLUB. The slub that defines the part of the objective space to search in.
+	 * \param branching decision. Used to make sure the choice of index is not redundant after probing was performed.
+	 * \return the index of the most often fractional variable, as an int.
+	 */
+	int computeMostOftenFractionalIndex(SLUB& slub, BranchingDecisions* newbd);
+
+	/*! \brief Compute the index that violates the most often the branching decisions among the extreme points of the lower bound set.
+	 *
+	 * \param BranchingDecisions* newbd. A pointer to the branching decisions used for violation test.
+	 * \return the index of the variable chosen, as an int.
+	 */
+	int computeMostViolatingIndex(BranchingDecisions* newbd);
+
 	/*! \brief Computes the median value of variable $x_i$ among the extreme points of the linear relaxation.
 	 *
 	 * This functions returns the median value of the variable $x_i$ among the extreme points of the LP relax.
@@ -348,7 +374,7 @@ public:
 	 * \param i int. Index of the splitting variable.
 	 * \return the index of the most often fractional variable, as an int.
 	 */
-	int computeMedianSplittingValue(SLUB& slub, int i);
+	int computeMedianSplittingValue(SLUB& slub, int i, int maxUb);
 
 	/*! \brief Computes the median value of variable $x_i$ among the extreme points of the linear relaxation.
 	 *
@@ -368,7 +394,17 @@ public:
 	 * \param i int. Index of the splitting variable.
 	 * \return the index of the most often fractional variable, as an int.
 	 */
-	int computeMostOftenFractionalSplittingValue(SLUB& slub, int i);
+	int computeMostOftenFractionalSplittingValue(SLUB& slub, int i, int maxUb);
+
+	/*! \brief Computes most often fractional value of variable $x_i$ among the extreme points of the linear relaxation.
+	 *
+	 * This functions returns the most often fractional value of the variable $x_i$ among the extreme points of the LP relax. If there is no fractional
+	 * value, the median splitting rule is called.
+	 * \param slub SLUB. The slub that defines the part of the objective space to search in.
+	 * \param i int. Index of the splitting variable.
+	 * \return the index of the most often fractional variable, as an int.
+	 */
+	int computeRandomSplittingValue(SLUB& slub, int i, int maxUb);
 
 	/*! \brief Check whether a point y is weakly dominated by an existing extreme point
 	 *
@@ -505,6 +541,80 @@ public:
 	 */
 	void generateRay(Point* w, int k, std::list<Point*>& R);
 
+	/* \brief Clear all the cuts generated in the model used to comptue the linear relaxation.
+	 */
+	void clearCuts();
+
+	/*! \brief Add the cover cut described in cc to the model.
+	 *
+	 * \param cc vector of vector of int. Represent the cover cuts. Each row is a new cut, column 0 is the rhs, and the other columns are the indices of the variables to add to the cut.
+	 */
+	void applyCoverCuts(std::vector<std::vector<int>>& cc);
+
+	/*! \brief Class the indices of the variables from the most to the least fractional among the extreme points of the lower bound set.
+	 *
+	 * \param cc vector int. Indices are stored in this vector.
+	 */
+	void computeFractionalProportion(std::vector<int>* I, SLUB& s);
+
+	/*! \brief Check for each free variable wether each extreme value occurs among extreme points of the lower bound set in the region described in bd.
+	 *
+	 * \param bd BranchingDecisions*. A pointer to the branching decisions used for reference.
+	 * \param h vector of vector of bool. If a variable take an extreme value, its corresponding cell is set to false.
+	 */
+	void checkFeasibleValues(BranchingDecisions* bd, std::vector<std::vector<bool>>* h);
+
+	/* \brief Check whether new values for fixing variables should be tested afted variable i was fixed to v.
+	 *
+	 * \param toTest, vector of vector of bool. Where the values to check for each variables are recorded.
+	 * \param int i. The index of the variable that was fixed.
+	 * \param int v. The value to which x_i was fixed.
+     */
+	void updateFeasibleValues(std::vector<std::vector<bool>>* toTest, BranchingDecisions* bd, int i, int v);
+
+	/* Get the minimal difference between the rhs of an hyperplane and the w.s. of local upper bound u using the normal vector of the hyperplane
+	 * as the weigth vector.
+	 *
+	 * \param LocalUpperBound u. The local upper bound used for reference.
+	 */
+	double getMinFacetGap(LocalUpperBound& u);
+
+	/* Retrieve the w.s. value of the extreme point with the smallest w.s. value, using weights l.
+	 *
+	 * \param vector of double, l. The weight vector.
+	 */
+	double getSmallestWeightedSumValue(std::vector<double>& l);
+
+	/* Retrieve the variables that are not fixed and that takes at least once a fractional value among the extreme points of the LB set.
+	 * If none takes a fractional value, returns the variables that take at least once different values.
+	 * If no extreme point exists in the area defined by the subproblem, the set of all free variables is returned.
+	 *
+	 * \param isCandidate, vector of bool. True if variable i is candidate, false otherwise.
+	 * \param BranchingDecision* bd. The branching decisions considered.
+	 */
+	void getCandidateSet(std::vector<bool>& isCandidate, BranchingDecisions* bd);
+
+	/* Retrieve the set of candidates according the fractionnality of the extreme point of the LB set.
+	 * Get the set of variables that is the most often fractional.
+	 * If none is fractional, returns the set of variables taking different values.
+	 * If no solution exist in the region, return the set of free variables.
+	 */
+	void getFractionalCandidateSet(std::vector<bool>& isCandidate, BranchingDecisions* bd);
+
+	void checkViolatingCut();
+	void checkViolatingCut(BranchingDecisions* bd);
+
+	bool filterNdLubs(std::list<LocalUpperBound*>& lubDomi, Hyperplane* h);
+
+	bool takeValue(BranchingDecisions* bd, int i, int v);
+
+	std::vector<double> getAverageNormalVector(BranchingDecisions* bd);
+
+	double getPercentageIntegrality();
+	double getPercentageFeasibility();
+
+	std::vector<double> getNadirPoint();
+
 	void clear();
 
 	void exportIteration();
@@ -512,4 +622,7 @@ public:
 	void exportProblem();
 
 	void debug__resetAdjLists();
+
+	int get_numberFacets();
+	int get_numberVertices();
 };
