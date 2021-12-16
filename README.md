@@ -18,7 +18,7 @@ To solve an instance, one can run the main function with the following parameter
 * Parameter 5: time limit, expressed in seconds.
   
 Note that for Parameter 4, all rules will perform similarly in case binary variables only are present in the instance solved.
-To run the best configuration in average from "Warm-starting lower bound set computations for branch-and-bound algorithmsfor multi objective integer linear programs" (N. Forget, S.L. Gadegaard, L.R. Nielsen) on instance Forget21-UFLP_6_3_1-1000_1-100_spheredown_1_3.txt (located in Code\instances), one should run the code with the following parameters:
+To run the best configuration in average from "Warm-starting lower bound set computations for branch-and-bound algorithms for multi objective integer linear programs" (N. Forget, S.L. Gadegaard, L.R. Nielsen) on instance Forget21-UFLP_6_3_1-1000_1-100_spheredown_1_3.txt (located in Code\instances), one should run the code with the following parameters:
 * With one hour time limit: instance\Forget21-UFLP_6_3_1-1000_1-100_spheredown_1_3.txt 101 201 501 3600
 * With four hours time limit: instance\Forget21-UFLP_6_3_1-1000_1-100_spheredown_1_3.txt 101 201 501 14400
 
