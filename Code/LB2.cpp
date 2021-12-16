@@ -2877,25 +2877,49 @@ void LinearRelaxation::checkViolatingCut() {
 
 void LinearRelaxation::checkViolatingCut(BranchingDecisions* bd) {
 
+	SLUB sl(bd->slub);
 	int s;
+	std::vector<int> cutIdx(0), newCut(0);
+	std::vector<bool> covered(lp->get_n(), false);
+	std::vector<std::vector<int>> cc(0);
 
+	sl.print();
 	for (std::list<Point*>::iterator y = extrPoints.begin(); y != extrPoints.end(); y++) {
-		if (!(*y)->is_ray()) {
+		if (!(*y)->is_ray() && sl.dominated(*y)) {
+
+			covered = std::vector(lp->get_n(), false);
 			for (int k = 0; k < lp->get_p(); k++) {
 
-				s = bd->slub[k];
-				for (int i = 0; i < lp->get_n(); i++) {
-					if ((*y)->get_preImage(i) >= 1 - EPS_INT) {
-						s -= int((*y)->get_preImage(i));
-					}
-				}
-				for (int i = 0; i < lp->get_n(); i++) {
-					if ((*y)->get_preImage(i) < 1 - EPS_INT && (*y)->get_preImage(i) > EPS_INT) {
-						if (lp->get_objective(k, i) > s) {
-							std::cout << " cover cut possible on objective " << k << "\n";
+				if (lp->get_objDir(k) == -1) { // minimization problems only for now
+
+					cutIdx.clear();
+					// set initial rhs & add variables that take value 1 to the cut
+					s = min(bd->slub[k], 1000000) - 1;
+					for (int i = 0; i < lp->get_n(); i++) {
+						if ((*y)->get_preImage(i) >= 1 - EPS_INT && lp->get_objective(k, i) > 0) {
+							s -= lp->get_objective(k, i); // int((*y)->get_preImage(i));
+							cutIdx.push_back(i);
+							covered[i] = true;
 						}
 					}
-				}
+
+					// search for fractional variables which result in solution exceeding an OB constraint if set to 1
+					for (int i = 0; i < lp->get_n(); i++) {
+						if (!covered[i] && (*y)->get_preImage(i) < 1 - EPS_INT && (*y)->get_preImage(i) > EPS_INT) { // if var fractional
+							if (lp->get_objective(k, i) > s) {
+								(*y)->print();
+								std::cout << " => cover cut possible on objective " << k << " (cost of " << lp->get_objective(k, i) << " )" << "\n";
+								
+								// generate a new cover cut
+								newCut = std::vector<int>(cutIdx);
+								newCut.push_back(i);
+								newCut.push_back(cutIdx.size()); // rhs of cover cut at the end of the vector
+								cc.push_back(std::vector<int>(newCut));
+								covered[i] = true;
+							}
+						}
+					}
+				}	
 			}
 		}
 	}

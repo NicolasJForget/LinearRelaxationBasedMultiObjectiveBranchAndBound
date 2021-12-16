@@ -63,6 +63,7 @@ public:
 	 * This function runs the branch-and-bound algorithm with the given parameters, which are:
 	 * 1) the lower bound set used
 	 * 2) the node selection strategy
+	 * 3) the branching value selection strategy
 	 * 4) the time limit
 	 * See GlobalConstants.h for the available identifiers.
 	 * \param lb int. The identifier of the lower bound set.
@@ -71,6 +72,20 @@ public:
 	 * \param timeout int. The time limit.
 	 */
 	void run(int lb, int nodeSel, int valBranch, int timeout);
+
+	/*! \brief Runs the branch-and-bound algorithm with the given parameters.
+	 *
+	 * This function runs the branch-and-bound algorithm with the given parameters, which are:
+	 * 1) the lower bound set used
+	 * 2) the node selection strategy
+	 * 4) the time limit
+	 * See GlobalConstants.h for the available identifiers.
+	 * \param lb int. The identifier of the lower bound set.
+	 * \param nodeSel int. The identifier of the node selection strategy.
+	 * \param ob int. The identifier of the objective branching strategy.
+	 * \param timeout int. The time limit.
+	 */
+	void run(int lb, int nodeSel, int ob, int valBranch, int limitSubPb, int timeout);
 
 	/*! \brief Select the next node to be explored in the tree
 	 *

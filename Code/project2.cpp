@@ -63,7 +63,9 @@ int main(int argc, char** argv)
     BranchAndBound B = BranchAndBound(instance);
 
     //B.run(atoi(argv[2]), atoi(argv[3]), atoi(argv[4]), atoi(argv[5]), atoi(argv[6]), atoi(argv[7]), atoi(argv[8]), 2, 2, 1, 0);
-    B.run(atoi(argv[2]), atoi(argv[3]), atoi(argv[4]), atoi(argv[5]));
+
+    //B.run(atoi(argv[2]), atoi(argv[3]), atoi(argv[4]), atoi(argv[5]));
+    B.run(atoi(argv[2]), atoi(argv[3]), atoi(argv[4]), atoi(argv[5]), atoi(argv[6]), atoi(argv[7]));
     std::cout << "solved\n";
     B.printStatistics();
 
@@ -113,11 +115,12 @@ int main(int argc, char** argv)
     //std::string inst = "C:/Users/au643334/source/repos/LinearRelaxationBasedMultiObjectiveBranchAndBound/Code/Forget21-UFLP_4_3_1-1000_1-100_spheredown_1_1.txt";
     //std::string inst = "Forget21-UFLP_4_3_1-1000_1-100_spheredown_1_1.txt";
     //std::string inst = "C:/Users/au643334/source/repos/LinearRelaxationBasedMultiObjectiveBranchAndBound/Code/Forget21-UFLP_6_3_1-1000_1-100_spheredown_1_1.txt";
-    //std::string inst = "C:/Users/au643334/source/repos/LinearRelaxationBasedMultiObjectiveBranchAndBound/Code/Duleab21-CFLP_5_10_1.fgt";
+    //std::string inst = "C:/Users/au643334/source/repos/LinearRelaxationBasedMultiObjectiveBranchAndBound/Code/instances/Duleab21-CFLP_5_10_1.fgt";
     //std::string inst = "C:/Users/au643334/source/repos/LinearRelaxationBasedMultiObjectiveBranchAndBound/Code/Duleab21-CFLP_10_20_1.fgt";
     //std::string inst = "C:/Users/au643334/source/repos/LinearRelaxationBasedMultiObjectiveBranchAndBound/Code/Forget21-UFLP_5_3_1-1000_1-100_spheredown_1_1.txt";
     //std::string inst = "C:/Users/au643334/source/repos/LinearRelaxationBasedMultiObjectiveBranchAndBound/Code/Kirlik14-KP_p-3_n-40_ins-1.dat";
-    //std::string inst = "C:/Users/au643334/source/repos/LinearRelaxationBasedMultiObjectiveBranchAndBound/Code/Kirlik14-KP_p-3_n-10_ins-1.dat";
+    //std::string inst = "C:/Users/au643334/source/repos/LinearRelaxationBasedMultiObjectiveBranchAndBound/Code/instances/Kirlik14-KP_p-3_n-10_ins-1.dat";
+    //std::string inst = "C:/Users/au643334/source/repos/LinearRelaxationBasedMultiObjectiveBranchAndBound/Code/instances/Forget21-UFLP_6_3_1-1000_1-100_spheredown_1_1.txt";
     
     //BranchAndBound* B = new BranchAndBound(inst);
     //BranchAndBound* B2 = new BranchAndBound(inst);
@@ -128,8 +131,10 @@ int main(int argc, char** argv)
     //B.getYnFromFile();
     //B2->run(WARMSTARTED_LP_RELAX, BREADTH_FIRST, MOST_OFTEN_FRACTIONAL, NO_OBJECTIVE_BRANCHING, MOST_OFTEN_FRACTIONAL_VALUE, TIME_OUT, OLD_RULE, 2, 2, 1, 0); //FULL_OBJECTIVE_BRANCHING // SCORE_BASED
     //B2->run(WARMSTARTED_LP_RELAX, BREADTH_FIRST, MOST_OFTEN_FRACTIONAL_VALUE, 3600);
+    //B2->run(WARMSTARTED_LP_RELAX, BREADTH_FIRST, FULL_OBJECTIVE_BRANCHING, MOST_OFTEN_FRACTIONAL_VALUE, 3600, 999);
     //B.printYN();
     //B2->printStatistics();
+    //B2->writeUB();
     //B->writeStatistics();
     //B->writeDepthStatistics();
 

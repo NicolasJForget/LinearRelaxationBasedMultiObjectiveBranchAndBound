@@ -13,7 +13,7 @@ BranchAndBound::BranchAndBound(std::string instance) : lp(instance), queue(0), T
     inst = instance;
     //inst.erase(0, 19);
     //inst.erase(0, 86);
-    inst.erase(0, 10);
+    //inst.erase(0, 10);
     //std::cout << inst << "\n";
 
     //lp.printConstraints();
@@ -186,6 +186,10 @@ void BranchAndBound::run(int lb, int nodeSel, int varSel, int ob, int valBranch,
      */
 void BranchAndBound::run(int lb, int nodeSel, int valBranch, int timeout) {
     run(lb, nodeSel, MOST_OFTEN_FRACTIONAL, NO_OBJECTIVE_BRANCHING, valBranch, timeout, OLD_RULE, 950, 2, 1, 0);
+}
+
+void BranchAndBound::run(int lb, int nodeSel, int ob, int valBranch, int limitSubPb, int timeout){
+    run(lb, nodeSel, MOST_OFTEN_FRACTIONAL, ob, valBranch, timeout, OLD_RULE, limitSubPb, 2, 1, 0);
 }
 
 /*! \brief Select the next node to be explored in the tree
@@ -493,6 +497,8 @@ void BranchAndBound::writeUB() {
     else pathFile = pathFile + std::string("_MOF");
 
     pathFile = pathFile + std::string(".txt");
+
+    std::cout << " File is: " << pathFile << "\n";
 
     // create & write file
 

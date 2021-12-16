@@ -194,7 +194,7 @@ Node::Node(Node& nd, BranchingDecisions* newbd, int index, SLUB& slub) : P(nd.P)
         LB->gatherIntegerSolutions(*UB);
         stat->timeUpdateUB.StopTimer();
 
-        //dynamic_cast<LinearRelaxation*>(LB)->checkViolatingCut();
+        //dynamic_cast<LinearRelaxation*>(LB)->checkViolatingCut(newbd);
     }
 
     // compute score
@@ -708,6 +708,10 @@ void Node::splitVS(TreeManager* T, SLUB & slub, int iteration, UpperBoundSet * U
                 newbd1->slub[k] = slub.get_coordinate(k);
             }
             //dynamic_cast<LinearRelaxation*>(LB)->getAverageNormalVector(newbd0);
+
+            // generate cover cuts
+            //slub.print();
+            //dynamic_cast<LinearRelaxation*>(LB)->checkViolatingCut(newbd0);
 
             // fix variables and select a variable to branching on accordingly
 
